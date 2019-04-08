@@ -25,12 +25,15 @@ import "github.com/VictoriaMetrics/metrics"
 var (
 	requestsTotal = metrics.NewCounter("requests_total")
 
-	queueSize = metrics.NewGauge(`queue_size{queue="foobar"}`, func() float64 {
-		return float64(foobarQueue.Len())
-	})
-
 	requestDuration = metrics.NewSummary(`requests_duration_seconds{handler="/my/super/handler"}`)
 )
+
+func init() {
+	metrics.NewGauge(`queue_size{queue="foobar",topic="baz"}`, func() float64 {
+		return float64(foobarQueue.Len())
+	})
+}
+
 // ...
 func requestHandler() {
 	startTime := time.Now()
