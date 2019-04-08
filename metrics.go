@@ -1,7 +1,7 @@
 // Package metrics implements Prometheus-compatible metrics for applications.
 //
-// This package is similar to https://github.com/prometheus/client_golang ,
-// but is simpler to use and is more lightweight.
+// This package is lightweight alternative to https://github.com/prometheus/client_golang
+// with simpler API and small dependencies.
 package metrics
 
 import (
@@ -154,6 +154,13 @@ type metric interface {
 //
 // If exposeProcessMetrics is true, then various `go_*` metrics are exposed
 // for the current process.
+//
+// The WritePrometheus func is usually called inside "/metrics" handler:
+//
+//     http.HandleFunc("/metrics", func(w http.ResponseWriter, req *http.Request) {
+//         metrics.WritePrometheus(w, true)
+//     })
+//
 func WritePrometheus(w io.Writer, exposeProcessMetrics bool) {
 	// Export user-defined metrics.
 	metricsMapLock.Lock()

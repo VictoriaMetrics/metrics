@@ -38,6 +38,12 @@ func requestHandler() {
 	requestsTotal.Inc()
 	requestDuration.UpdateDuration(startTime)
 }
+// ...
+
+// Register `/metrics` handler for exposing the registered metrics.
+http.HandleFunc("/metrics", func(w http.ResponseWriter, req *http.Request) {
+	metrics.WritePrometheus(w, true)
+})
 ```
 
 See [docs](http://godoc.org/github.com/VictoriaMetrics/metrics) for more info.
