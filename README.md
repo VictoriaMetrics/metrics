@@ -19,6 +19,30 @@
 * It doesn't implement advanced functionality from [github.com/prometheus/client_golang/prometheus](https://godoc.org/github.com/prometheus/client_golang/prometheus).
 
 
+### Usage
+
+```go
+var (
+	requestsTotal = metrics.NewCounter("requests_total")
+
+	queueSize = metrics.NewGauge(`queue_size{queue="foobar"}`, func() float64 {
+		return float64(foobarQueue.Len())
+	})
+
+	requestDuration = metrics.NewSummary(`requests_duration_seconds{handler="/my/super/handler"}`)
+)
+
+func requestHandler() {
+	startTime := time.Now()
+	...
+	requestsTotal.Inc()
+	requestDuration.UpdateDuration(startTime)
+}
+```
+
+See [docs](http://godoc.org/github.com/VictoriaMetrics/metrics) for more info.
+
+
 ### Users
 
 * `Metrics` has been extracted from [VictoriaMetrics](https://github.com/VictoriaMetrics/VictoriaMetrics) sources.
