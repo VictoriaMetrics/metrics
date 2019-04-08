@@ -2,6 +2,12 @@
 //
 // This package is lightweight alternative to https://github.com/prometheus/client_golang
 // with simpler API and small dependencies.
+//
+// Usage:
+//
+//     1. Register the required metrics via New* functions.
+//     2. Expose them to `/metrics` page via WritePrometheus.
+//     3. Update the registered metrics during application lifetime.
 package metrics
 
 import (
@@ -25,7 +31,7 @@ func (g *gauge) marshalTo(prefix string, w io.Writer) {
 	fmt.Fprintf(w, "%s %g\n", prefix, v)
 }
 
-// NewGauge creates a gauge with the given name, which calls f
+// NewGauge registers gauge with the given name, which calls f
 // to obtain gauge value.
 //
 // name must be valid Prometheus-compatible metric with possible labels.
@@ -50,7 +56,7 @@ type Counter struct {
 	n uint64
 }
 
-// NewCounter creates and returns new counter with the given name.
+// NewCounter registers and returns new counter with the given name.
 //
 // name must be valid Prometheus-compatible metric with possible lables.
 // For instance,
