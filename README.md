@@ -3,7 +3,7 @@
 [![Go Report](https://goreportcard.com/badge/github.com/VictoriaMetrics/metrics)](https://goreportcard.com/report/github.com/VictoriaMetrics/metrics)
 [![codecov](https://codecov.io/gh/VictoriaMetrics/metrics/branch/master/graph/badge.svg)](https://codecov.io/gh/VictoriaMetrics/metrics)
 
-# metrics - lightweight alternative to `github.com/prometheus/client_golang/prometheus`.
+# metrics - lightweight package for exporting metrics in Prometheus format
 
 
 ### Features
@@ -22,6 +22,8 @@
 ### Usage
 
 ```go
+import "github.com/VictoriaMetrics/metrics"
+// ...
 var (
 	requestsTotal = metrics.NewCounter("requests_total")
 
@@ -31,10 +33,10 @@ var (
 
 	requestDuration = metrics.NewSummary(`requests_duration_seconds{handler="/my/super/handler"}`)
 )
-
+// ...
 func requestHandler() {
 	startTime := time.Now()
-	...
+	// ...
 	requestsTotal.Inc()
 	requestDuration.UpdateDuration(startTime)
 }
