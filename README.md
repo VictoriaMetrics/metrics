@@ -29,7 +29,7 @@ var (
 	requestsTotal = metrics.NewCounter("requests_total")
 
 	// Register summary with a single label.
-	requestDuration = metrics.NewSummary(`requests_duration_seconds{handler="/my/super/handler"}`)
+	requestDuration = metrics.NewSummary(`requests_duration_seconds{path="/foobar/baz"}`)
 
 	// Register gauge with two labels.
 	queueSize = metrics.NewGauge(`queue_size{queue="foobar",topic="baz"}`, func() float64 {
@@ -39,14 +39,16 @@ var (
 
 // ...
 func requestHandler() {
-	startTime := time.Now()
-	// ...
+	// Increment requestTotal counter.
 	requestsTotal.Inc()
+
+	startTime := time.Now()
+	processRequest()
+	// Update requestDuration summary.
 	requestDuration.UpdateDuration(startTime)
 }
-// ...
 
-// `/metrics` handler for exposing the registered metrics.
+// Expose the registered metrics at `/metrics` path.
 http.HandleFunc("/metrics", func(w http.ResponseWriter, req *http.Request) {
 	metrics.WritePrometheus(w, true)
 })
