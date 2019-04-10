@@ -14,7 +14,7 @@
 
 ### Limitations
 
-* It doesn't implement advanced functionality from [github.com/prometheus/client_golang/prometheus](https://godoc.org/github.com/prometheus/client_golang/prometheus).
+* It doesn't implement advanced functionality from [github.com/prometheus/client_golang](https://godoc.org/github.com/prometheus/client_golang).
 
 
 ### Usage
@@ -60,3 +60,17 @@ See [docs](http://godoc.org/github.com/VictoriaMetrics/metrics) for more info.
 * `Metrics` has been extracted from [VictoriaMetrics](https://github.com/VictoriaMetrics/VictoriaMetrics) sources.
   See [this article](https://medium.com/devopslinks/victoriametrics-creating-the-best-remote-storage-for-prometheus-5d92d66787ac)
   for more info about `VictoriaMetrics`.
+
+
+### FAQ
+
+#### Why the `metrics` API isn't compatible with `github.com/prometheus/client_golang`?
+
+Because the `github.com/prometheus/client_golang` is too complex and is hard to use.
+
+
+#### Why the `metrics.WritePrometheus` doesn't expose documentation for each metric?
+
+Because this documentation is ignored by Prometheus. The documentation is for users.
+Just add comments in the source code or in other suitable place explaining each metric
+exposed from your application.
