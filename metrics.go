@@ -22,16 +22,7 @@ import (
 	"github.com/valyala/histogram"
 )
 
-type gauge struct {
-	f func() float64
-}
-
-func (g *gauge) marshalTo(prefix string, w io.Writer) {
-	v := g.f()
-	fmt.Fprintf(w, "%s %g\n", prefix, v)
-}
-
-// NewGauge registers gauge with the given name, which calls f
+// NewGauge registers and returns gauge with the given name, which calls f
 // to obtain gauge value.
 //
 // name must be valid Prometheus-compatible metric with possible labels.
@@ -42,18 +33,27 @@ func (g *gauge) marshalTo(prefix string, w io.Writer) {
 //     * foo{bar="baz",aaa="b"}
 //
 // f must be safe for concurrent calls.
-func NewGauge(name string, f func() float64) {
-	g := &gauge{
+func NewGauge(name string, f func() float64) *Gauge {
+	g := &Gauge{
 		f: f,
 	}
 	registerMetric(name, g)
+	return g
 }
 
-// Counter is a counter.
-//
-// It may be used as a gauge if Dec and Set are called.
-type Counter struct {
-	n uint64
+// Gauge is a float64 gauge.
+type Gauge struct {
+	f func() float64
+}
+
+// Get returns the current value for g.
+func (g *Gauge) Get() float64 {
+	return g.f()
+}
+
+func (g *Gauge) marshalTo(prefix string, w io.Writer) {
+	v := g.f()
+	fmt.Fprintf(w, "%s %g\n", prefix, v)
 }
 
 // NewCounter registers and returns new counter with the given name.
@@ -72,25 +72,11 @@ func NewCounter(name string) *Counter {
 	return c
 }
 
-func registerMetric(name string, m metric) {
-	if err := validateMetric(name); err != nil {
-		// Do not use logger.Panicf here, since it may be uninitialized yet.
-		panic(fmt.Errorf("BUG: invalid metric name %q: %s", name, err))
-	}
-	metricsMapLock.Lock()
-	ok := isRegisteredMetric(metricsMap, name)
-	if !ok {
-		nm := namedMetric{
-			name:   name,
-			metric: m,
-		}
-		metricsMap = append(metricsMap, nm)
-	}
-	metricsMapLock.Unlock()
-	if ok {
-		// Do not use logger.Panicf here, since it may be uninitialized yet.
-		panic(fmt.Errorf("BUG: metric with name %q is already registered", name))
-	}
+// Counter is a counter.
+//
+// It may be used as a gauge if Dec and Set are called.
+type Counter struct {
+	n uint64
 }
 
 // Inc increments c.
@@ -236,3 +222,24 @@ func WritePrometheus(w io.Writer, exposeProcessMetrics bool) {
 }
 
 var startTime = time.Now()
+
+func registerMetric(name string, m metric) {
+	if err := validateMetric(name); err != nil {
+		// Do not use logger.Panicf here, since it may be uninitialized yet.
+		panic(fmt.Errorf("BUG: invalid metric name %q: %s", name, err))
+	}
+	metricsMapLock.Lock()
+	ok := isRegisteredMetric(metricsMap, name)
+	if !ok {
+		nm := namedMetric{
+			name:   name,
+			metric: m,
+		}
+		metricsMap = append(metricsMap, nm)
+	}
+	metricsMapLock.Unlock()
+	if ok {
+		// Do not use logger.Panicf here, since it may be uninitialized yet.
+		panic(fmt.Errorf("BUG: metric with name %q is already registered", name))
+	}
+}

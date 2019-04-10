@@ -21,18 +21,21 @@
 
 ```go
 import "github.com/VictoriaMetrics/metrics"
-// ...
+
+// Register various time series.
+// Time series name may contain labels in Prometheus format - see below.
 var (
+	// Register counter without labels.
 	requestsTotal = metrics.NewCounter("requests_total")
 
+	// Register summary with a single label.
 	requestDuration = metrics.NewSummary(`requests_duration_seconds{handler="/my/super/handler"}`)
-)
 
-func init() {
-	metrics.NewGauge(`queue_size{queue="foobar",topic="baz"}`, func() float64 {
+	// Register gauge with two labels.
+	queueSize = metrics.NewGauge(`queue_size{queue="foobar",topic="baz"}`, func() float64 {
 		return float64(foobarQueue.Len())
 	})
-}
+)
 
 // ...
 func requestHandler() {
@@ -43,7 +46,7 @@ func requestHandler() {
 }
 // ...
 
-// Register `/metrics` handler for exposing the registered metrics.
+// `/metrics` handler for exposing the registered metrics.
 http.HandleFunc("/metrics", func(w http.ResponseWriter, req *http.Request) {
 	metrics.WritePrometheus(w, true)
 })
