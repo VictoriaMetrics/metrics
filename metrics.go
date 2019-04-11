@@ -1,7 +1,7 @@
 // Package metrics implements Prometheus-compatible metrics for applications.
 //
 // This package is lightweight alternative to https://github.com/prometheus/client_golang
-// with simpler API and small dependencies.
+// with simpler API and smaller dependencies.
 //
 // Usage:
 //
