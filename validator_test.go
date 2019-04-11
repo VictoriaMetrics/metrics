@@ -17,6 +17,7 @@ func TestValidateMetricSuccess(t *testing.T) {
 	f(`a{foo="bar"}`)
 	f(`foo{bar="baz", x="y\"z"}`)
 	f(`foo{bar="b}az"}`)
+	f(`:foo:bar{bar="a",baz="b"}`)
 }
 
 func TestValidateMetricError(t *testing.T) {
@@ -40,7 +41,6 @@ func TestValidateMetricError(t *testing.T) {
 	f(`a{ foo="bar"}`)
 	f(`a{foo= "bar"}`)
 	f(`a{foo="bar" }`)
-	f(`a{foo="bar",baz="a"}`)
 	f(`a{foo="bar" ,baz="a"}`)
 
 	// invalid tags

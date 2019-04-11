@@ -3,6 +3,7 @@ package metrics
 import (
 	"fmt"
 	"io"
+	"math"
 	"sync"
 	"time"
 
@@ -50,6 +51,7 @@ func NewSummary(name string) *Summary {
 //
 // The returned summary is safe to use from concurrent goroutines.
 func NewSummaryExt(name string, window time.Duration, quantiles []float64) *Summary {
+	validateQuantiles(quantiles)
 	s := &Summary{
 		curr:           histogram.NewFast(),
 		next:           histogram.NewFast(),
@@ -57,7 +59,7 @@ func NewSummaryExt(name string, window time.Duration, quantiles []float64) *Summ
 		quantileValues: make([]float64, len(quantiles)),
 	}
 	registerSummary(s, window)
-	registerMetric(fmt.Sprintf("\x00%s", name), s)
+	registerMetric(name, s)
 	for i, q := range quantiles {
 		quantileValueName := addTag(name, fmt.Sprintf(`quantile="%g"`, q))
 		qv := &quantileValue{
@@ -67,6 +69,14 @@ func NewSummaryExt(name string, window time.Duration, quantiles []float64) *Summ
 		registerMetric(quantileValueName, qv)
 	}
 	return s
+}
+
+func validateQuantiles(quantiles []float64) {
+	for _, q := range quantiles {
+		if q < 0 || q > 1 {
+			panic(fmt.Errorf("BUG: quantile must be in the range [0..1]; got %v", q))
+		}
+	}
 }
 
 // Update updates the summary.
@@ -104,14 +114,16 @@ func (qv *quantileValue) marshalTo(prefix string, w io.Writer) {
 	qv.s.mu.Lock()
 	v := qv.s.quantileValues[qv.idx]
 	qv.s.mu.Unlock()
-	fmt.Fprintf(w, "%s %g\n", prefix, v)
+	if !math.IsNaN(v) {
+		fmt.Fprintf(w, "%s %g\n", prefix, v)
+	}
 }
 
 func addTag(name, tag string) string {
 	if len(name) == 0 || name[len(name)-1] != '}' {
 		return fmt.Sprintf("%s{%s}", name, tag)
 	}
-	return fmt.Sprintf("%s, %s}", name[:len(name)-1], tag)
+	return fmt.Sprintf("%s,%s}", name[:len(name)-1], tag)
 }
 
 func registerSummary(s *Summary, window time.Duration) {

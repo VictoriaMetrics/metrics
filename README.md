@@ -1,5 +1,7 @@
+[![Build Status](https://travis-ci.org/VictoriaMetrics/metrics.svg)](https://travis-ci.org/VictoriaMetrics/metrics)
 [![GoDoc](https://godoc.org/github.com/VictoriaMetrics/metrics?status.svg)](http://godoc.org/github.com/VictoriaMetrics/metrics)
 [![Go Report](https://goreportcard.com/badge/github.com/VictoriaMetrics/metrics)](https://goreportcard.com/report/github.com/VictoriaMetrics/metrics)
+[![codecov](https://codecov.io/gh/VictoriaMetrics/metrics/branch/master/graph/badge.svg)](https://codecov.io/gh/VictoriaMetrics/metrics)
 
 # metrics - lightweight package for exporting metrics in Prometheus format
 
@@ -76,3 +78,9 @@ Because the `github.com/prometheus/client_golang` is too complex and is hard to 
 Because this documentation is ignored by Prometheus. The documentation is for users.
 Just add comments in the source code or in other suitable place explaining each metric
 exposed from your application.
+
+
+#### How to implement [CounterVec](https://godoc.org/github.com/prometheus/client_golang/prometheus#CounterVec) in `metrics`?
+
+Just use [GetOrCreateCounter](http://godoc.org/github.com/VictoriaMetrics/metrics#GetOrCreateCounter)
+instead of `CounterVec.With`.

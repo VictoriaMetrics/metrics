@@ -10,10 +10,6 @@ func validateMetric(s string) error {
 	if len(s) == 0 {
 		return fmt.Errorf("metric cannot be empty")
 	}
-	if s[0] == 0 {
-		// Skip special case metrics. See Histogram for details.
-		return nil
-	}
 	n := strings.IndexByte(s, '{')
 	if n < 0 {
 		return validateIdent(s)
@@ -64,11 +60,18 @@ func validateTags(s string) error {
 		if len(s) == 0 {
 			return nil
 		}
-		if !strings.HasPrefix(s, ", ") {
-			return fmt.Errorf("missing `, ` after %q value; tail=%q", ident, s)
+		if !strings.HasPrefix(s, ",") {
+			return fmt.Errorf("missing `,` after %q value; tail=%q", ident, s)
 		}
-		s = s[2:]
+		s = skipSpace(s[1:])
 	}
+}
+
+func skipSpace(s string) string {
+	for len(s) > 0 && s[0] == ' ' {
+		s = s[1:]
+	}
+	return s
 }
 
 func validateIdent(s string) error {

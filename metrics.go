@@ -16,126 +16,20 @@ import (
 	"runtime"
 	"sort"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/valyala/histogram"
 )
 
-// NewGauge registers and returns gauge with the given name, which calls f
-// to obtain gauge value.
-//
-// name must be valid Prometheus-compatible metric with possible labels.
-// For instance,
-//
-//     * foo
-//     * foo{bar="baz"}
-//     * foo{bar="baz",aaa="b"}
-//
-// f must be safe for concurrent calls.
-func NewGauge(name string, f func() float64) *Gauge {
-	g := &Gauge{
-		f: f,
-	}
-	registerMetric(name, g)
-	return g
-}
-
-// Gauge is a float64 gauge.
-type Gauge struct {
-	f func() float64
-}
-
-// Get returns the current value for g.
-func (g *Gauge) Get() float64 {
-	return g.f()
-}
-
-func (g *Gauge) marshalTo(prefix string, w io.Writer) {
-	v := g.f()
-	fmt.Fprintf(w, "%s %g\n", prefix, v)
-}
-
-// NewCounter registers and returns new counter with the given name.
-//
-// name must be valid Prometheus-compatible metric with possible lables.
-// For instance,
-//
-//     * foo
-//     * foo{bar="baz"}
-//     * foo{bar="baz",aaa="b"}
-//
-// The returned counter is safe to use from concurrent goroutines.
-func NewCounter(name string) *Counter {
-	c := &Counter{}
-	registerMetric(name, c)
-	return c
-}
-
-// Counter is a counter.
-//
-// It may be used as a gauge if Dec and Set are called.
-type Counter struct {
-	n uint64
-}
-
-// Inc increments c.
-func (c *Counter) Inc() {
-	atomic.AddUint64(&c.n, 1)
-}
-
-// Dec decrements c.
-func (c *Counter) Dec() {
-	atomic.AddUint64(&c.n, ^uint64(0))
-}
-
-// Add adds n to c.
-func (c *Counter) Add(n int) {
-	atomic.AddUint64(&c.n, uint64(n))
-}
-
-// Get returns the current value for c.
-func (c *Counter) Get() uint64 {
-	return atomic.LoadUint64(&c.n)
-}
-
-// Set sets c value to n.
-func (c *Counter) Set(n uint64) {
-	atomic.StoreUint64(&c.n, n)
-}
-
-// marshalTo marshals c with the given prefix to w.
-func (c *Counter) marshalTo(prefix string, w io.Writer) {
-	v := c.Get()
-	fmt.Fprintf(w, "%s %d\n", prefix, v)
-}
-
 var (
 	metricsMapLock sync.Mutex
-	metricsMap     []namedMetric
+	metricsList    []*namedMetric
+	metricsMap     = make(map[string]*namedMetric)
 )
 
 type namedMetric struct {
 	name   string
 	metric metric
-}
-
-func isRegisteredMetric(mm []namedMetric, name string) bool {
-	for _, nm := range mm {
-		if nm.name == name {
-			return true
-		}
-	}
-	return false
-}
-
-func sortMetrics(mm []namedMetric) {
-	lessFunc := func(i, j int) bool {
-		return mm[i].name < mm[j].name
-	}
-	if !sort.SliceIsSorted(mm, lessFunc) {
-		sort.Slice(mm, lessFunc)
-	}
 }
 
 type metric interface {
@@ -154,19 +48,23 @@ type metric interface {
 //     })
 //
 func WritePrometheus(w io.Writer, exposeProcessMetrics bool) {
-	// Export user-defined metrics.
+	lessFunc := func(i, j int) bool {
+		return metricsList[i].name < metricsList[j].name
+	}
 	metricsMapLock.Lock()
-	sortMetrics(metricsMap)
-	for _, nm := range metricsMap {
+	if !sort.SliceIsSorted(metricsList, lessFunc) {
+		sort.Slice(metricsList, lessFunc)
+	}
+	for _, nm := range metricsList {
 		nm.metric.marshalTo(nm.name, w)
 	}
 	metricsMapLock.Unlock()
-
-	if !exposeProcessMetrics {
-		return
+	if exposeProcessMetrics {
+		writeProcessMetrics(w)
 	}
+}
 
-	// Export memory stats.
+func writeProcessMetrics(w io.Writer) {
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
 	fmt.Fprintf(w, `go_memstats_alloc_bytes %d`+"\n", ms.Alloc)
@@ -225,21 +123,20 @@ var startTime = time.Now()
 
 func registerMetric(name string, m metric) {
 	if err := validateMetric(name); err != nil {
-		// Do not use logger.Panicf here, since it may be uninitialized yet.
 		panic(fmt.Errorf("BUG: invalid metric name %q: %s", name, err))
 	}
 	metricsMapLock.Lock()
-	ok := isRegisteredMetric(metricsMap, name)
+	nm, ok := metricsMap[name]
 	if !ok {
-		nm := namedMetric{
+		nm = &namedMetric{
 			name:   name,
 			metric: m,
 		}
-		metricsMap = append(metricsMap, nm)
+		metricsMap[name] = nm
+		metricsList = append(metricsList, nm)
 	}
 	metricsMapLock.Unlock()
 	if ok {
-		// Do not use logger.Panicf here, since it may be uninitialized yet.
-		panic(fmt.Errorf("BUG: metric with name %q is already registered", name))
+		panic(fmt.Errorf("BUG: metric %q is already registered", name))
 	}
 }
