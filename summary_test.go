@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -98,4 +99,53 @@ func TestSummarySmallWindow(t *testing.T) {
 	if strings.Contains(result, name) {
 		t.Fatalf("summary %s cannot be present in the WritePrometheus output; got\n%s", name, result)
 	}
+}
+
+func TestGetOrCreateSummaryInvalidWindow(t *testing.T) {
+	name := "GetOrCreateSummaryInvalidWindow"
+	GetOrCreateSummaryExt(name, defaultSummaryWindow, defaultSummaryQuantiles)
+	expectPanic(t, name, func() {
+		GetOrCreateSummaryExt(name, defaultSummaryWindow/2, defaultSummaryQuantiles)
+	})
+}
+
+func TestGetOrCreateSummaryInvalidQuantiles(t *testing.T) {
+	name := "GetOrCreateSummaryInvalidQuantiles"
+	GetOrCreateSummaryExt(name, defaultSummaryWindow, defaultSummaryQuantiles)
+	expectPanic(t, name, func() {
+		GetOrCreateSummaryExt(name, defaultSummaryWindow, []float64{0.1, 0.2})
+	})
+	quantiles := append([]float64{}, defaultSummaryQuantiles...)
+	quantiles[len(quantiles)-1] /= 2
+	expectPanic(t, name, func() {
+		GetOrCreateSummaryExt(name, defaultSummaryWindow, quantiles)
+	})
+}
+
+func TestGetOrCreateSummarySerial(t *testing.T) {
+	name := "GetOrCreateSummarySerial"
+	if err := testGetOrCreateSummary(name); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestGetOrCreateSummaryConcurrent(t *testing.T) {
+	name := "GetOrCreateSummaryConcurrent"
+	err := testConcurrent(func() error {
+		return testGetOrCreateSummary(name)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func testGetOrCreateSummary(name string) error {
+	s1 := GetOrCreateSummary(name)
+	for i := 0; i < 10; i++ {
+		s2 := GetOrCreateSummary(name)
+		if s1 != s2 {
+			return fmt.Errorf("unexpected summary returned; got %p; want %p", s2, s1)
+		}
+	}
+	return nil
 }

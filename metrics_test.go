@@ -11,9 +11,10 @@ func TestInvalidName(t *testing.T) {
 	f := func(name string) {
 		t.Helper()
 		expectPanic(t, fmt.Sprintf("NewCounter(%q)", name), func() { NewCounter(name) })
-		expectPanic(t, fmt.Sprintf("GetOrCreateCounter(%q)", name), func() { GetOrCreateCounter(name) })
 		expectPanic(t, fmt.Sprintf("NewGauge(%q)", name), func() { NewGauge(name, func() float64 { return 0 }) })
 		expectPanic(t, fmt.Sprintf("NewSummary(%q)", name), func() { NewSummary(name) })
+		expectPanic(t, fmt.Sprintf("GetOrCreateCounter(%q)", name), func() { GetOrCreateCounter(name) })
+		expectPanic(t, fmt.Sprintf("GetOrCreateSummary(%q)", name), func() { GetOrCreateSummary(name) })
 	}
 	f("")
 	f("foo{")
@@ -49,6 +50,12 @@ func TestGetOrCreateNotCounter(t *testing.T) {
 	name := "GetOrCreateNotCounter"
 	NewSummary(name)
 	expectPanic(t, name, func() { GetOrCreateCounter(name) })
+}
+
+func TestGetOrCreateNotSummary(t *testing.T) {
+	name := "GetOrCreateNotSummary"
+	NewCounter(name)
+	expectPanic(t, name, func() { GetOrCreateSummary(name) })
 }
 
 func TestWritePrometheusSerial(t *testing.T) {

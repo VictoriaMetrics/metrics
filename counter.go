@@ -96,7 +96,6 @@ func GetOrCreateCounter(name string) *Counter {
 		}
 		metricsMapLock.Unlock()
 	}
-
 	c, ok := nm.metric.(*Counter)
 	if !ok {
 		panic(fmt.Errorf("BUG: metric %q isn't a Counter. It is %T", name, nm.metric))

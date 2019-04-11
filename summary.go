@@ -23,6 +23,8 @@ type Summary struct {
 
 	quantiles      []float64
 	quantileValues []float64
+
+	window time.Duration
 }
 
 // NewSummary creates and returns new summary with the given name.
@@ -51,16 +53,29 @@ func NewSummary(name string) *Summary {
 //
 // The returned summary is safe to use from concurrent goroutines.
 func NewSummaryExt(name string, window time.Duration, quantiles []float64) *Summary {
+	s := newSummary(window, quantiles)
+	registerMetric(name, s)
+	registerSummary(s)
+	registerSummaryQuantiles(name, s)
+	return s
+}
+
+func newSummary(window time.Duration, quantiles []float64) *Summary {
+	// Make a copy of quantiles in order to prevent from their modification by the caller.
+	quantiles = append([]float64{}, quantiles...)
 	validateQuantiles(quantiles)
 	s := &Summary{
 		curr:           histogram.NewFast(),
 		next:           histogram.NewFast(),
 		quantiles:      quantiles,
 		quantileValues: make([]float64, len(quantiles)),
+		window:         window,
 	}
-	registerSummary(s, window)
-	registerMetric(name, s)
-	for i, q := range quantiles {
+	return s
+}
+
+func registerSummaryQuantiles(name string, s *Summary) {
+	for i, q := range s.quantiles {
 		quantileValueName := addTag(name, fmt.Sprintf(`quantile="%g"`, q))
 		qv := &quantileValue{
 			s:   s,
@@ -68,7 +83,6 @@ func NewSummaryExt(name string, window time.Duration, quantiles []float64) *Summ
 		}
 		registerMetric(quantileValueName, qv)
 	}
-	return s
 }
 
 func validateQuantiles(quantiles []float64) {
@@ -105,6 +119,93 @@ func (s *Summary) updateQuantiles() {
 	s.mu.Unlock()
 }
 
+// GetOrCreateSummary returns registered summary with the given name
+// or creates new summary if the registry doesn't contain summary with
+// the given name.
+//
+// name must be valid Prometheus-compatible metric with possible lables.
+// For instance,
+//
+//     * foo
+//     * foo{bar="baz"}
+//     * foo{bar="baz",aaa="b"}
+//
+// The returned summary is safe to use from concurrent goroutines.
+//
+// Performance tip: prefer NewSummary instead of GetOrCreateSummary.
+func GetOrCreateSummary(name string) *Summary {
+	return GetOrCreateSummaryExt(name, defaultSummaryWindow, defaultSummaryQuantiles)
+}
+
+// GetOrCreateSummaryExt returns registered summary with the given name,
+// window and quantiles or creates new summary if the registry doesn't
+// contain summary with the given name.
+//
+// name must be valid Prometheus-compatible metric with possible lables.
+// For instance,
+//
+//     * foo
+//     * foo{bar="baz"}
+//     * foo{bar="baz",aaa="b"}
+//
+// The returned summary is safe to use from concurrent goroutines.
+//
+// Performance tip: prefer NewSummaryExt instead of GetOrCreateSummaryExt.
+func GetOrCreateSummaryExt(name string, window time.Duration, quantiles []float64) *Summary {
+	metricsMapLock.Lock()
+	nm := metricsMap[name]
+	metricsMapLock.Unlock()
+	if nm == nil {
+		// Slow path - create and register missing summary.
+		if err := validateMetric(name); err != nil {
+			panic(fmt.Errorf("BUG: invalid metric name %q: %s", name, err))
+		}
+		s := newSummary(window, quantiles)
+		nmNew := &namedMetric{
+			name:   name,
+			metric: s,
+		}
+		mustRegisterQuantiles := false
+		metricsMapLock.Lock()
+		nm = metricsMap[name]
+		if nm == nil {
+			nm = nmNew
+			metricsMap[name] = nm
+			metricsList = append(metricsList, nm)
+			registerSummary(s)
+			mustRegisterQuantiles = true
+		}
+		metricsMapLock.Unlock()
+		if mustRegisterQuantiles {
+			registerSummaryQuantiles(name, s)
+		}
+	}
+	s, ok := nm.metric.(*Summary)
+	if !ok {
+		panic(fmt.Errorf("BUG: metric %q isn't a Summary. It is %T", name, nm.metric))
+	}
+	if s.window != window {
+		panic(fmt.Errorf("BUG: invalid window requested for the summary %q; requested %s; need %s", name, window, s.window))
+	}
+	if !isEqualQuantiles(s.quantiles, quantiles) {
+		panic(fmt.Errorf("BUG: invalid quantiles requested from the summary %q; requested %v; need %v", name, quantiles, s.quantiles))
+	}
+	return s
+}
+
+func isEqualQuantiles(a, b []float64) bool {
+	// Do not use relfect.DeepEqual, since it is slower than the direct comparison.
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 type quantileValue struct {
 	s   *Summary
 	idx int
@@ -126,7 +227,8 @@ func addTag(name, tag string) string {
 	return fmt.Sprintf("%s,%s}", name[:len(name)-1], tag)
 }
 
-func registerSummary(s *Summary, window time.Duration) {
+func registerSummary(s *Summary) {
+	window := s.window
 	summariesLock.Lock()
 	summaries[window] = append(summaries[window], s)
 	if len(summaries[window]) == 1 {
