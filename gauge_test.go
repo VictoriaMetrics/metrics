@@ -6,6 +6,15 @@ import (
 	"testing"
 )
 
+func TestGaugeError(t *testing.T) {
+	expectPanic(t, "NewGauge_nil_callback", func() {
+		NewGauge("NewGauge_nil_callback", nil)
+	})
+	expectPanic(t, "GetOrCreateGauge_nil_callback", func() {
+		GetOrCreateGauge("GetOrCreateGauge_nil_callback", nil)
+	})
+}
+
 func TestGaugeSerial(t *testing.T) {
 	name := "GaugeSerial"
 	n := 1.23

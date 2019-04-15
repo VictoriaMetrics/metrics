@@ -14,6 +14,7 @@ func TestInvalidName(t *testing.T) {
 		expectPanic(t, fmt.Sprintf("NewGauge(%q)", name), func() { NewGauge(name, func() float64 { return 0 }) })
 		expectPanic(t, fmt.Sprintf("NewSummary(%q)", name), func() { NewSummary(name) })
 		expectPanic(t, fmt.Sprintf("GetOrCreateCounter(%q)", name), func() { GetOrCreateCounter(name) })
+		expectPanic(t, fmt.Sprintf("GetOrCreateGauge(%q)", name), func() { GetOrCreateGauge(name, func() float64 { return 0 }) })
 		expectPanic(t, fmt.Sprintf("GetOrCreateSummary(%q)", name), func() { GetOrCreateSummary(name) })
 	}
 	f("")
@@ -50,6 +51,12 @@ func TestGetOrCreateNotCounter(t *testing.T) {
 	name := "GetOrCreateNotCounter"
 	NewSummary(name)
 	expectPanic(t, name, func() { GetOrCreateCounter(name) })
+}
+
+func TestGetOrCreateNotGauge(t *testing.T) {
+	name := "GetOrCreateNotGauge"
+	NewCounter(name)
+	expectPanic(t, name, func() { GetOrCreateGauge(name, func() float64 { return 0 }) })
 }
 
 func TestGetOrCreateNotSummary(t *testing.T) {
