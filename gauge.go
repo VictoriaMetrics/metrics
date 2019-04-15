@@ -27,6 +27,8 @@ func NewGauge(name string, f func() float64) *Gauge {
 }
 
 // Gauge is a float64 gauge.
+//
+// See also Counter, which could be used as a gauge with Set and Dec calls.
 type Gauge struct {
 	f func() float64
 }
