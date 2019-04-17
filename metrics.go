@@ -16,7 +16,6 @@ import (
 	"runtime"
 	"sort"
 	"sync"
-	"time"
 
 	"github.com/valyala/histogram"
 )
@@ -118,8 +117,6 @@ func writeProcessMetrics(w io.Writer) {
 	fmt.Fprintf(w, "go_info_ext{compiler=%q, GOARCH=%q, GOOS=%q, GOROOT=%q} 1\n",
 		runtime.Compiler, runtime.GOARCH, runtime.GOOS, runtime.GOROOT())
 }
-
-var startTime = time.Now()
 
 func registerMetric(name string, m metric) {
 	if err := validateMetric(name); err != nil {
