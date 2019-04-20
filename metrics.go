@@ -8,6 +8,8 @@
 //     1. Register the required metrics via New* functions.
 //     2. Expose them to `/metrics` page via WritePrometheus.
 //     3. Update the registered metrics during application lifetime.
+//
+// The package has been extracted from https://victoriametrics.com/
 package metrics
 
 import (
