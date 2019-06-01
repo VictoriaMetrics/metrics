@@ -13,11 +13,8 @@ func ExampleSet() {
 	sc.Inc()
 	s.NewGauge(`set_gauge{foo="bar"}`, func() float64 { return 42 })
 
-	// Dump global metrics
-	var bb bytes.Buffer
-
 	// Dump metrics from s.
-	bb.Reset()
+	var bb bytes.Buffer
 	s.WritePrometheus(&bb)
 	fmt.Printf("set metrics:\n%s\n", bb.String())
 
