@@ -93,9 +93,9 @@ func (sm *Summary) UpdateDuration(startTime time.Time) {
 }
 
 func (sm *Summary) marshalTo(prefix string, w io.Writer) {
-	// Just update sm.quantileValues and don't write anything to w.
+	// Do nothing. Quantile values should be already updated by the caller
+	// via sm.updateQuantiles() call.
 	// sm.quantileValues will be marshaled later via quantileValue.marshalTo.
-	sm.updateQuantiles()
 }
 
 func (sm *Summary) updateQuantiles() {

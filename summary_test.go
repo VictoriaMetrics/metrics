@@ -29,10 +29,10 @@ func TestSummarySerial(t *testing.T) {
 	}
 
 	// Make sure the summary doesn't print anything on marshalTo call
-	// and updates s.quantileValues.
 	testMarshalTo(t, s, "prefix", "")
 
 	// Verify s.quantileValues
+	s.updateQuantiles()
 	if s.quantileValues[len(s.quantileValues)-1] != 1999 {
 		t.Fatalf("unexpected quantileValues[last]; got %v; want %v", s.quantileValues[len(s.quantileValues)-1], 1999)
 	}
