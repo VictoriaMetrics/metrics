@@ -28,8 +28,8 @@ func TestSummarySerial(t *testing.T) {
 		s.UpdateDuration(t.Add(-time.Millisecond * time.Duration(i)))
 	}
 
-	// Make sure the summary doesn't print anything on marshalTo call
-	testMarshalTo(t, s, "prefix", "")
+	// Make sure the summary prints <prefix>_sum and <prefix>_count on marshalTo call
+	testMarshalTo(t, s, "prefix", fmt.Sprintf("prefix_sum %g\nprefix_count %d\n", s.sum, s.count))
 
 	// Verify s.quantileValues
 	s.updateQuantiles()
@@ -54,12 +54,12 @@ func TestSummaryConcurrent(t *testing.T) {
 		for i := 0; i < 10; i++ {
 			s.Update(float64(i))
 		}
-		testMarshalTo(t, s, "prefix", "")
 		return nil
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	testMarshalTo(t, s, "prefix", "prefix_sum 225\nprefix_count 50\n")
 }
 
 func TestSummaryWithTags(t *testing.T) {
@@ -92,10 +92,13 @@ func TestSummarySmallWindow(t *testing.T) {
 		s.Update(123)
 	}
 	// Wait for window update and verify that the summary has been cleared.
-	time.Sleep(5 * window)
+	time.Sleep(2 * window)
 	var bb bytes.Buffer
 	WritePrometheus(&bb, false)
 	result := bb.String()
+	// <name>_sum and <name>_count are present in the output.
+	// Only <name>{quantile} shouldn't be present.
+	name += "{"
 	if strings.Contains(result, name) {
 		t.Fatalf("summary %s cannot be present in the WritePrometheus output; got\n%s", name, result)
 	}
