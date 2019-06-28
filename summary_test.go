@@ -30,6 +30,7 @@ func TestSummarySerial(t *testing.T) {
 
 	// Make sure the summary prints <prefix>_sum and <prefix>_count on marshalTo call
 	testMarshalTo(t, s, "prefix", fmt.Sprintf("prefix_sum %g\nprefix_count %d\n", s.sum, s.count))
+	testMarshalTo(t, s, `m{foo="bar"}`, fmt.Sprintf("m_sum{foo=\"bar\"} %g\nm_count{foo=\"bar\"} %d\n", s.sum, s.count))
 
 	// Verify s.quantileValues
 	s.updateQuantiles()
