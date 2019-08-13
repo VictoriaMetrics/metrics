@@ -109,7 +109,12 @@ func (sm *Summary) marshalTo(prefix string, w io.Writer) {
 
 	if count > 0 {
 		name, filters := splitMetricName(prefix)
-		fmt.Fprintf(w, "%s_sum%s %g\n", name, filters, sum)
+		if float64(int64(sum)) == sum {
+			// Marshal integer sum without scientific notation
+			fmt.Fprintf(w, "%s_sum%s %d\n", name, filters, int64(sum))
+		} else {
+			fmt.Fprintf(w, "%s_sum%s %g\n", name, filters, sum)
+		}
 		fmt.Fprintf(w, "%s_count%s %d\n", name, filters, count)
 	}
 }
