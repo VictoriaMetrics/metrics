@@ -48,7 +48,7 @@ func (g *Gauge) marshalTo(prefix string, w io.Writer) {
 // or creates new gauge if the registry doesn't contain gauge with
 // the given name.
 //
-// name must be valid Prometheus-compatible metric with possible lables.
+// name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
 //
 //     * foo
