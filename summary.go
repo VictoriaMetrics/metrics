@@ -33,7 +33,7 @@ type Summary struct {
 
 // NewSummary creates and returns new summary with the given name.
 //
-// name must be valid Prometheus-compatible metric with possible lables.
+// name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
 //
 //     * foo
@@ -48,7 +48,7 @@ func NewSummary(name string) *Summary {
 // NewSummaryExt creates and returns new summary with the given name,
 // window and quantiles.
 //
-// name must be valid Prometheus-compatible metric with possible lables.
+// name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
 //
 //     * foo
@@ -137,7 +137,7 @@ func (sm *Summary) updateQuantiles() {
 // or creates new summary if the registry doesn't contain summary with
 // the given name.
 //
-// name must be valid Prometheus-compatible metric with possible lables.
+// name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
 //
 //     * foo
@@ -155,7 +155,7 @@ func GetOrCreateSummary(name string) *Summary {
 // window and quantiles or creates new summary if the registry doesn't
 // contain summary with the given name.
 //
-// name must be valid Prometheus-compatible metric with possible lables.
+// name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
 //
 //     * foo
