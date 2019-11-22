@@ -27,6 +27,10 @@ func TestNewSet(t *testing.T) {
 			if sm == nil {
 				t.Fatalf("NewSummary returned nil")
 			}
+			h := s.NewHistogram(fmt.Sprintf("histogram_%d", j))
+			if h == nil {
+				t.Fatalf("NewHistogram returned nil")
+			}
 		}
 	}
 }

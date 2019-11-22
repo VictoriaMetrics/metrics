@@ -16,6 +16,7 @@ func TestInvalidName(t *testing.T) {
 		expectPanic(t, fmt.Sprintf("GetOrCreateCounter(%q)", name), func() { GetOrCreateCounter(name) })
 		expectPanic(t, fmt.Sprintf("GetOrCreateGauge(%q)", name), func() { GetOrCreateGauge(name, func() float64 { return 0 }) })
 		expectPanic(t, fmt.Sprintf("GetOrCreateSummary(%q)", name), func() { GetOrCreateSummary(name) })
+		expectPanic(t, fmt.Sprintf("GetOrCreateHistogram(%q)", name), func() { GetOrCreateHistogram(name) })
 	}
 	f("")
 	f("foo{")
@@ -45,6 +46,11 @@ func TestDoubleRegister(t *testing.T) {
 		NewSummary(name)
 		expectPanic(t, name, func() { NewSummary(name) })
 	})
+	t.Run("NewHistogram", func(t *testing.T) {
+		name := "NewHistogramDoubleRegister"
+		NewHistogram(name)
+		expectPanic(t, name, func() { NewSummary(name) })
+	})
 }
 
 func TestGetOrCreateNotCounter(t *testing.T) {
@@ -63,6 +69,12 @@ func TestGetOrCreateNotSummary(t *testing.T) {
 	name := "GetOrCreateNotSummary"
 	NewCounter(name)
 	expectPanic(t, name, func() { GetOrCreateSummary(name) })
+}
+
+func TestGetOrCreateNotHistogram(t *testing.T) {
+	name := "GetOrCreateNotHistogram"
+	NewCounter(name)
+	expectPanic(t, name, func() { GetOrCreateHistogram(name) })
 }
 
 func TestWritePrometheusSerial(t *testing.T) {
