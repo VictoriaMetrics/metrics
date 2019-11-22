@@ -66,37 +66,37 @@ func TestGetBucketIdx(t *testing.T) {
 }
 
 func TestGetRangeEndFromBucketIdx(t *testing.T) {
-	f := func(idx uint, endExpected float64) {
+	f := func(idx uint, endExpected string) {
 		t.Helper()
 		end := getRangeEndFromBucketIdx(idx)
 		if end != endExpected {
-			t.Fatalf("unexpected getRangeEndFromBucketIdx(%d); got %g; want %g", idx, end, endExpected)
+			t.Fatalf("unexpected getRangeEndFromBucketIdx(%d); got %s; want %s", idx, end, endExpected)
 		}
 	}
-	f(0, 0)
-	f(1, math.Pow10(e10Min))
-	f(2, 2*math.Pow10(e10Min))
-	f(3, 3*math.Pow10(e10Min))
-	f(9, 9*math.Pow10(e10Min))
-	f(10, math.Pow10(e10Min+1))
-	f(11, 2*math.Pow10(e10Min+1))
-	f(16, 7*math.Pow10(e10Min+1))
-	f(17, 8*math.Pow10(e10Min+1))
-	f(18, 9*math.Pow10(e10Min+1))
-	f(19, math.Pow10(e10Min+2))
-	f(20, 2*math.Pow10(e10Min+2))
-	f(21, 3*math.Pow10(e10Min+2))
-	f(bucketsCount-21, 9*math.Pow10(e10Max-2))
-	f(bucketsCount-20, math.Pow10(e10Max-1))
-	f(bucketsCount-16, 5*math.Pow10(e10Max-1))
-	f(bucketsCount-13, 8*math.Pow10(e10Max-1))
-	f(bucketsCount-12, 9*math.Pow10(e10Max-1))
-	f(bucketsCount-11, math.Pow10(e10Max))
-	f(bucketsCount-10, 2*math.Pow10(e10Max))
-	f(bucketsCount-4, 8*math.Pow10(e10Max))
-	f(bucketsCount-3, 9*math.Pow10(e10Max))
-	f(bucketsCount-2, math.Pow10(e10Max+1))
-	f(bucketsCount-1, math.Inf(1))
+	f(0, "0")
+	f(1, fmt.Sprintf("1e%d", e10Min))
+	f(2, fmt.Sprintf("2e%d", e10Min))
+	f(3, fmt.Sprintf("3e%d", e10Min))
+	f(9, fmt.Sprintf("9e%d", e10Min))
+	f(10, fmt.Sprintf("1e%d", e10Min+1))
+	f(11, fmt.Sprintf("2e%d", e10Min+1))
+	f(16, fmt.Sprintf("7e%d", e10Min+1))
+	f(17, fmt.Sprintf("8e%d", e10Min+1))
+	f(18, fmt.Sprintf("9e%d", e10Min+1))
+	f(19, fmt.Sprintf("1e%d", e10Min+2))
+	f(20, fmt.Sprintf("2e%d", e10Min+2))
+	f(21, fmt.Sprintf("3e%d", e10Min+2))
+	f(bucketsCount-21, fmt.Sprintf("9e%d", e10Max-2))
+	f(bucketsCount-20, fmt.Sprintf("1e%d", e10Max-1))
+	f(bucketsCount-16, fmt.Sprintf("5e%d", e10Max-1))
+	f(bucketsCount-13, fmt.Sprintf("8e%d", e10Max-1))
+	f(bucketsCount-12, fmt.Sprintf("9e%d", e10Max-1))
+	f(bucketsCount-11, fmt.Sprintf("1e%d", e10Max))
+	f(bucketsCount-10, fmt.Sprintf("2e%d", e10Max))
+	f(bucketsCount-4, fmt.Sprintf("8e%d", e10Max))
+	f(bucketsCount-3, fmt.Sprintf("9e%d", e10Max))
+	f(bucketsCount-2, fmt.Sprintf("1e%d", e10Max+1))
+	f(bucketsCount-1, "+Inf")
 }
 
 func TestHistogramSerial(t *testing.T) {
@@ -117,8 +117,8 @@ func TestHistogramSerial(t *testing.T) {
 	}
 
 	// Make sure the histogram prints <prefix>_xbucket on marshalTo call
-	testMarshalTo(t, h, "prefix", "prefix_vmbucket{vmrange=\"80...90\"} 7\nprefix_vmbucket{vmrange=\"90...100\"} 10\nprefix_vmbucket{vmrange=\"100...200\"} 100\nprefix_vmbucket{vmrange=\"200...300\"} 100\nprefix_vmbucket{vmrange=\"300...400\"} 23\nprefix_sum 48840\nprefix_count 240\n")
-	testMarshalTo(t, h, `	  m{foo="bar"}`, "\t  m_vmbucket{foo=\"bar\",vmrange=\"80...90\"} 7\n\t  m_vmbucket{foo=\"bar\",vmrange=\"90...100\"} 10\n\t  m_vmbucket{foo=\"bar\",vmrange=\"100...200\"} 100\n\t  m_vmbucket{foo=\"bar\",vmrange=\"200...300\"} 100\n\t  m_vmbucket{foo=\"bar\",vmrange=\"300...400\"} 23\n\t  m_sum{foo=\"bar\"} 48840\n\t  m_count{foo=\"bar\"} 240\n")
+	testMarshalTo(t, h, "prefix", "prefix_vmbucket{vmrange=\"8e1...9e1\"} 7\nprefix_vmbucket{vmrange=\"9e1...1e2\"} 10\nprefix_vmbucket{vmrange=\"1e2...2e2\"} 100\nprefix_vmbucket{vmrange=\"2e2...3e2\"} 100\nprefix_vmbucket{vmrange=\"3e2...4e2\"} 23\nprefix_sum 48840\nprefix_count 240\n")
+	testMarshalTo(t, h, `	  m{foo="bar"}`, "\t  m_vmbucket{foo=\"bar\",vmrange=\"8e1...9e1\"} 7\n\t  m_vmbucket{foo=\"bar\",vmrange=\"9e1...1e2\"} 10\n\t  m_vmbucket{foo=\"bar\",vmrange=\"1e2...2e2\"} 100\n\t  m_vmbucket{foo=\"bar\",vmrange=\"2e2...3e2\"} 100\n\t  m_vmbucket{foo=\"bar\",vmrange=\"3e2...4e2\"} 23\n\t  m_sum{foo=\"bar\"} 48840\n\t  m_count{foo=\"bar\"} 240\n")
 
 	// Verify supported ranges
 	for i := -100; i < 100; i++ {
@@ -148,7 +148,7 @@ func TestHistogramConcurrent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	testMarshalTo(t, h, "prefix", "prefix_vmbucket{vmrange=\"0...0\"} 5\nprefix_vmbucket{vmrange=\"0.9...1\"} 5\nprefix_vmbucket{vmrange=\"1...2\"} 5\nprefix_vmbucket{vmrange=\"2...3\"} 5\nprefix_vmbucket{vmrange=\"3...4\"} 5\nprefix_vmbucket{vmrange=\"4...5\"} 5\nprefix_vmbucket{vmrange=\"5...6\"} 5\nprefix_vmbucket{vmrange=\"6...7\"} 5\nprefix_vmbucket{vmrange=\"7...8\"} 5\nprefix_vmbucket{vmrange=\"8...9\"} 5\nprefix_sum 225\nprefix_count 50\n")
+	testMarshalTo(t, h, "prefix", "prefix_vmbucket{vmrange=\"0...0\"} 5\nprefix_vmbucket{vmrange=\"9e-1...1\"} 5\nprefix_vmbucket{vmrange=\"1...2\"} 5\nprefix_vmbucket{vmrange=\"2...3\"} 5\nprefix_vmbucket{vmrange=\"3...4\"} 5\nprefix_vmbucket{vmrange=\"4...5\"} 5\nprefix_vmbucket{vmrange=\"5...6\"} 5\nprefix_vmbucket{vmrange=\"6...7\"} 5\nprefix_vmbucket{vmrange=\"7...8\"} 5\nprefix_vmbucket{vmrange=\"8...9\"} 5\nprefix_sum 225\nprefix_count 50\n")
 }
 
 func TestHistogramWithTags(t *testing.T) {
@@ -159,7 +159,7 @@ func TestHistogramWithTags(t *testing.T) {
 	var bb bytes.Buffer
 	WritePrometheus(&bb, false)
 	result := bb.String()
-	namePrefixWithTag := `TestHistogram_vmbucket{tag="foo",vmrange="100...200"} 1` + "\n"
+	namePrefixWithTag := `TestHistogram_vmbucket{tag="foo",vmrange="1e2...2e2"} 1` + "\n"
 	if !strings.Contains(result, namePrefixWithTag) {
 		t.Fatalf("missing histogram %s in the WritePrometheus output; got\n%s", namePrefixWithTag, result)
 	}
