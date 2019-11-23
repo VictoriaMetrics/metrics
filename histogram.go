@@ -37,14 +37,16 @@ import (
 //     - <start> and <end> - start and end values for the given bucket
 //     - <counter> - the number of hits to the given bucket during Update* calls.
 //
-// Only non-zero buckets are exposed.
+// Histogram buckets can be converted to Prometheus-like buckets with `le` labels
+// with `prometheus_buckets(<metric_name>_bucket)` function in VictoriaMetrics:
 //
-// Histogram buckets can be converted to Prometheus-like buckets in VictoriaMetrics
-// with `prometheus_buckets(<metric_name>_bucket)`:
-//
-//     prometheus_buckets(rate(request_duration_bucket[5m]))
+//     prometheus_buckets(request_duration_bucket)
 //
 // Histogram cannot be used for negative values.
+//
+// Time series produced by the Histogram have better compression ratio comparing to
+// Prometheus histogram buckets with `le` labels, since they don't include counters
+// for all the previous buckets.
 type Histogram struct {
 	buckets [bucketsCount]uint64
 
