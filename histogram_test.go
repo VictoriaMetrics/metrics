@@ -4,17 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 )
-
-func TestHistogramUpdateNegativeValue(t *testing.T) {
-	h := NewHistogram("TestHisogramUpdateNegativeValue")
-	expectPanic(t, "negative value", func() {
-		h.Update(-123)
-	})
-}
 
 func TestGetBucketIdx(t *testing.T) {
 	f := func(v float64, idxExpected uint) {
@@ -126,6 +120,11 @@ func TestHistogramSerial(t *testing.T) {
 	}
 	h.UpdateDuration(time.Now().Add(-time.Minute))
 
+	// Verify edge cases
+	h.Update(math.Inf(1))
+	h.Update(math.NaN())
+	h.Update(-123)
+
 	// Make sure the histogram becomes visible in the output of WritePrometheus,
 	// since now it contains values.
 	bb.Reset()
@@ -149,6 +148,21 @@ func TestHistogramConcurrent(t *testing.T) {
 		t.Fatal(err)
 	}
 	testMarshalTo(t, h, "prefix", "prefix_bucket{vmrange=\"0...0\"} 5\nprefix_bucket{vmrange=\"9e-1...1\"} 5\nprefix_bucket{vmrange=\"1...2\"} 5\nprefix_bucket{vmrange=\"2...3\"} 5\nprefix_bucket{vmrange=\"3...4\"} 5\nprefix_bucket{vmrange=\"4...5\"} 5\nprefix_bucket{vmrange=\"5...6\"} 5\nprefix_bucket{vmrange=\"6...7\"} 5\nprefix_bucket{vmrange=\"7...8\"} 5\nprefix_bucket{vmrange=\"8...9\"} 5\nprefix_sum 225\nprefix_count 50\n")
+
+	var labels []string
+	var values []uint64
+	h.VisitNonZeroBuckets(func(label string, value uint64) {
+		labels = append(labels, label)
+		values = append(values, value)
+	})
+	labelsExpected := []string{"0...0", "9e-1...1", "1...2", "2...3", "3...4", "4...5", "5...6", "6...7", "7...8", "8...9"}
+	if !reflect.DeepEqual(labels, labelsExpected) {
+		t.Fatalf("unexpected labels; got %v; want %v", labels, labelsExpected)
+	}
+	valuesExpected := []uint64{5, 5, 5, 5, 5, 5, 5, 5, 5, 5}
+	if !reflect.DeepEqual(values, valuesExpected) {
+		t.Fatalf("unexpected values; got %v; want %v", values, valuesExpected)
+	}
 }
 
 func TestHistogramWithTags(t *testing.T) {

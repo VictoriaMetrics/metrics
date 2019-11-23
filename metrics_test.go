@@ -106,6 +106,7 @@ func testWritePrometheus() error {
 func expectPanic(t *testing.T, context string, f func()) {
 	t.Helper()
 	defer func() {
+		t.Helper()
 		if r := recover(); r == nil {
 			t.Fatalf("expecting panic in %s", context)
 		}
