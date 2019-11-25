@@ -141,6 +141,6 @@ func testMarshalTo(t *testing.T, m metric, prefix, resultExpected string) {
 	m.marshalTo(prefix, &bb)
 	result := bb.String()
 	if result != resultExpected {
-		t.Fatalf("unexpected marshaled metric; got %q; want %q", result, resultExpected)
+		t.Fatalf("unexpected marshaled metric;\ngot\n%q\nwant\n%q", result, resultExpected)
 	}
 }

@@ -10,87 +10,75 @@ import (
 	"time"
 )
 
-func TestGetBucketIdx(t *testing.T) {
-	f := func(v float64, idxExpected uint) {
+func TestGetBucketIdxAndOffset(t *testing.T) {
+	f := func(v float64, bucketIdxExpected int, offsetExpected uint) {
 		t.Helper()
-		idx := getBucketIdx(v)
-		if idx != idxExpected {
-			t.Fatalf("unexpected getBucketIdx(%g); got %d; want %d", v, idx, idxExpected)
+		bucketIdx, offset := getBucketIdxAndOffset(v)
+		if bucketIdx != bucketIdxExpected {
+			t.Fatalf("unexpected bucketIdx for %g; got %d; want %d", v, bucketIdx, bucketIdxExpected)
+		}
+		if offset != offsetExpected {
+			t.Fatalf("unexpected offset for %g; got %d; want %d", v, offset, offsetExpected)
 		}
 	}
-	f(0, 0)
-	f(math.Pow10(e10Min-10), 1)
-	f(math.Pow10(e10Min-1), 1)
-	f(1.5*math.Pow10(e10Min-1), 1)
-	f(2*math.Pow10(e10Min-1), 1)
-	f(3*math.Pow10(e10Min-1), 1)
-	f(9*math.Pow10(e10Min-1), 1)
-	f(9.999*math.Pow10(e10Min-1), 1)
-	f(math.Pow10(e10Min), 1)
-	f(1.00001*math.Pow10(e10Min), 2)
-	f(1.5*math.Pow10(e10Min), 2)
-	f(1.999999*math.Pow10(e10Min), 2)
-	f(2*math.Pow10(e10Min), 2)
-	f(2.0000001*math.Pow10(e10Min), 3)
-	f(2.999*math.Pow10(e10Min), 3)
-	f(8.999*math.Pow10(e10Min), 9)
-	f(9*math.Pow10(e10Min), 9)
-	f(9.01*math.Pow10(e10Min), 10)
-	f(9.99999*math.Pow10(e10Min), 10)
-	f(math.Pow10(e10Min+1), 10)
-	f(1.9*math.Pow10(e10Min+1), 11)
-	f(9.9*math.Pow10(e10Min+1), 19)
-	f(math.Pow10(e10Min+2), 19)
-	f(math.Pow10(e10Min+3), 28)
-	f(5*math.Pow10(e10Min+3), 32)
-	f(0.1, 1-9*(e10Min+1))
-	f(0.11, 2-9*(e10Min+1))
-	f(0.95, 1-9*e10Min)
-	f(1, 1-9*e10Min)
-	f(2, 2-9*e10Min)
-	f(math.Pow10(e10Max), 1+9*(e10Max-e10Min))
-	f(2*math.Pow10(e10Max), 2+9*(e10Max-e10Min))
-	f(9.999*math.Pow10(e10Max), 10+9*(e10Max-e10Min))
-	f(math.Pow10(e10Max+1), 10+9*(e10Max-e10Min))
-	f(2*math.Pow10(e10Max+1), 11+9*(e10Max-e10Min))
-	f(9*math.Pow10(e10Max+1), 11+9*(e10Max-e10Min))
-	f(math.Pow10(e10Max+5), 11+9*(e10Max-e10Min))
-	f(12.34*math.Pow10(e10Max+7), 11+9*(e10Max-e10Min))
-	f(math.Inf(1), 11+9*(e10Max-e10Min))
+	const step = 1.0 / decimalMultiplier
+	const prec = 2 * decimalPrecision
+	f(0, -1, 0)
+	f(math.Pow10(e10Min-10), -1, 1)
+	f(math.Pow10(e10Min-1), -1, 1)
+	f(3*math.Pow10(e10Min-1), -1, 1)
+	f(9*math.Pow10(e10Min-1), -1, 1)
+	f(9.999*math.Pow10(e10Min-1), -1, 1)
+	f(math.Pow10(e10Min), -1, 1)
+	f((1+prec)*math.Pow10(e10Min), 0, 0)
+	f((1+step)*math.Pow10(e10Min), 0, 0)
+	f((1+step+prec)*math.Pow10(e10Min), 0, 1)
+	f((1+2*step+prec)*math.Pow10(e10Min), 0, 2)
+	f((1+3*step+prec)*math.Pow10(e10Min), 0, 3)
+	f(math.Pow10(e10Min+1), 0, bucketSize-1)
+	f((1+prec)*math.Pow10(e10Min+1), 1, 0)
+	f((1+step)*math.Pow10(e10Min+1), 1, 0)
+	f((1+step+prec)*math.Pow10(e10Min+1), 1, 1)
+	f(0.1, -e10Min-2, bucketSize-1)
+	f((1+prec)*0.1, -e10Min-1, 0)
+	f((1+step)*0.1, -e10Min-1, 0)
+	f((1+step+prec)*0.1, -e10Min-1, 1)
+	f((1+(bucketSize-1)*step)*0.1, -e10Min-1, bucketSize-2)
+	f((1+(bucketSize-1)*step+prec)*0.1, -e10Min-1, bucketSize-1)
+	f(math.Pow10(e10Max-2), bucketsCount-3, bucketSize-1)
+	f((1+prec)*math.Pow10(e10Max-2), bucketsCount-2, 0)
+	f(math.Pow10(e10Max-1), bucketsCount-2, bucketSize-1)
+	f((1+prec)*math.Pow10(e10Max-1), bucketsCount-1, 0)
+	f((1+(bucketSize-1)*step)*math.Pow10(e10Max-1), bucketsCount-1, bucketSize-2)
+	f((1+(bucketSize-1)*step+prec)*math.Pow10(e10Max-1), bucketsCount-1, bucketSize-1)
+	f(math.Pow10(e10Max), bucketsCount-1, bucketSize-1)
+	f((1+prec)*math.Pow10(e10Max), -1, 2)
+	f((1+3*step+prec)*math.Pow10(e10Max), -1, 2)
+	f(math.Inf(1), -1, 2)
 }
 
-func TestGetRangeEndFromBucketIdx(t *testing.T) {
-	f := func(idx uint, endExpected string) {
+func TestGetVMRange(t *testing.T) {
+	f := func(bucketIdx int, offset uint, vmrangeExpected string) {
 		t.Helper()
-		end := getRangeEndFromBucketIdx(idx)
-		if end != endExpected {
-			t.Fatalf("unexpected getRangeEndFromBucketIdx(%d); got %s; want %s", idx, end, endExpected)
+		vmrange := getVMRange(bucketIdx, offset)
+		if vmrange != vmrangeExpected {
+			t.Fatalf("unexpected vmrange for bucketIdx=%d, offset=%d; got %s; want %s", bucketIdx, offset, vmrange, vmrangeExpected)
 		}
 	}
-	f(0, "0")
-	f(1, fmt.Sprintf("1e%d", e10Min))
-	f(2, fmt.Sprintf("2e%d", e10Min))
-	f(3, fmt.Sprintf("3e%d", e10Min))
-	f(9, fmt.Sprintf("9e%d", e10Min))
-	f(10, fmt.Sprintf("1e%d", e10Min+1))
-	f(11, fmt.Sprintf("2e%d", e10Min+1))
-	f(16, fmt.Sprintf("7e%d", e10Min+1))
-	f(17, fmt.Sprintf("8e%d", e10Min+1))
-	f(18, fmt.Sprintf("9e%d", e10Min+1))
-	f(19, fmt.Sprintf("1e%d", e10Min+2))
-	f(20, fmt.Sprintf("2e%d", e10Min+2))
-	f(21, fmt.Sprintf("3e%d", e10Min+2))
-	f(bucketsCount-21, fmt.Sprintf("9e%d", e10Max-2))
-	f(bucketsCount-20, fmt.Sprintf("1e%d", e10Max-1))
-	f(bucketsCount-16, fmt.Sprintf("5e%d", e10Max-1))
-	f(bucketsCount-13, fmt.Sprintf("8e%d", e10Max-1))
-	f(bucketsCount-12, fmt.Sprintf("9e%d", e10Max-1))
-	f(bucketsCount-11, fmt.Sprintf("1e%d", e10Max))
-	f(bucketsCount-10, fmt.Sprintf("2e%d", e10Max))
-	f(bucketsCount-4, fmt.Sprintf("8e%d", e10Max))
-	f(bucketsCount-3, fmt.Sprintf("9e%d", e10Max))
-	f(bucketsCount-2, fmt.Sprintf("1e%d", e10Max+1))
-	f(bucketsCount-1, "+Inf")
+	const step = 1.0 / decimalMultiplier
+	f(-1, 0, "0...0")
+	f(-1, 1, fmt.Sprintf("0...1.0e%d", e10Min))
+	f(-1, 2, fmt.Sprintf("1.0e%d...+Inf", e10Max))
+	f(0, 0, fmt.Sprintf("1.0e%d...%.1fe%d", e10Min, 1+step, e10Min))
+	f(0, 1, fmt.Sprintf("%.1fe%d...%.1fe%d", 1+step, e10Min, 1+2*step, e10Min))
+	f(0, bucketSize-2, fmt.Sprintf("%.1fe%d...%.1fe%d", 1+(bucketSize-2)*step, e10Min, 1+(bucketSize-1)*step, e10Min))
+	f(0, bucketSize-1, fmt.Sprintf("%.1fe%d...%.1fe%d", 1+(bucketSize-1)*step, e10Min, 1.0, e10Min+1))
+	f(-e10Min, 0, fmt.Sprintf("%.1fe%d...%.1fe%d", 1.0, 0, 1+step, 0))
+	f(-e10Min, 1, fmt.Sprintf("%.1fe%d...%.1fe%d", 1+step, 0, 1+2*step, 0))
+	f(-e10Min, bucketSize-2, fmt.Sprintf("%.1fe%d...%.1fe%d", 1+(bucketSize-2)*step, 0, 1+(bucketSize-1)*step, 0))
+	f(-e10Min, bucketSize-1, fmt.Sprintf("%.1fe%d...%.1fe%d", 1+(bucketSize-1)*step, 0, 1.0, 1))
+	f(bucketsCount-1, bucketSize-2, fmt.Sprintf("%.1fe%d...%.1fe%d", 1+(bucketSize-2)*step, e10Max-1, 1+(bucketSize-1)*step, e10Max-1))
+	f(bucketsCount-1, bucketSize-1, fmt.Sprintf("%.1fe%d...%.1fe%d", 1+(bucketSize-1)*step, e10Max-1, 1.0, e10Max))
 }
 
 func TestHistogramSerial(t *testing.T) {
@@ -106,22 +94,41 @@ func TestHistogramSerial(t *testing.T) {
 	}
 
 	// Write data to histogram
-	for i := 84; i < 324; i++ {
+	for i := 98; i < 218; i++ {
 		h.Update(float64(i))
 	}
 
 	// Make sure the histogram prints <prefix>_xbucket on marshalTo call
-	testMarshalTo(t, h, "prefix", "prefix_bucket{vmrange=\"8e1...9e1\"} 7\nprefix_bucket{vmrange=\"9e1...1e2\"} 10\nprefix_bucket{vmrange=\"1e2...2e2\"} 100\nprefix_bucket{vmrange=\"2e2...3e2\"} 100\nprefix_bucket{vmrange=\"3e2...4e2\"} 23\nprefix_sum 48840\nprefix_count 240\n")
-	testMarshalTo(t, h, `	  m{foo="bar"}`, "\t  m_bucket{foo=\"bar\",vmrange=\"8e1...9e1\"} 7\n\t  m_bucket{foo=\"bar\",vmrange=\"9e1...1e2\"} 10\n\t  m_bucket{foo=\"bar\",vmrange=\"1e2...2e2\"} 100\n\t  m_bucket{foo=\"bar\",vmrange=\"2e2...3e2\"} 100\n\t  m_bucket{foo=\"bar\",vmrange=\"3e2...4e2\"} 23\n\t  m_sum{foo=\"bar\"} 48840\n\t  m_count{foo=\"bar\"} 240\n")
+	testMarshalTo(t, h, "prefix", "prefix_bucket{vmrange=\"9.6e1...9.8e1\"} 1\nprefix_bucket{vmrange=\"9.8e1...1.0e2\"} 2\nprefix_bucket{vmrange=\"1.0e2...1.2e2\"} 20\nprefix_bucket{vmrange=\"1.2e2...1.4e2\"} 20\nprefix_bucket{vmrange=\"1.4e2...1.6e2\"} 20\nprefix_bucket{vmrange=\"1.6e2...1.8e2\"} 20\nprefix_bucket{vmrange=\"1.8e2...2.0e2\"} 20\nprefix_bucket{vmrange=\"2.0e2...2.2e2\"} 17\nprefix_sum 18900\nprefix_count 120\n")
+	testMarshalTo(t, h, `	  m{foo="bar"}`, "\t  m_bucket{foo=\"bar\",vmrange=\"9.6e1...9.8e1\"} 1\n\t  m_bucket{foo=\"bar\",vmrange=\"9.8e1...1.0e2\"} 2\n\t  m_bucket{foo=\"bar\",vmrange=\"1.0e2...1.2e2\"} 20\n\t  m_bucket{foo=\"bar\",vmrange=\"1.2e2...1.4e2\"} 20\n\t  m_bucket{foo=\"bar\",vmrange=\"1.4e2...1.6e2\"} 20\n\t  m_bucket{foo=\"bar\",vmrange=\"1.6e2...1.8e2\"} 20\n\t  m_bucket{foo=\"bar\",vmrange=\"1.8e2...2.0e2\"} 20\n\t  m_bucket{foo=\"bar\",vmrange=\"2.0e2...2.2e2\"} 17\n\t  m_sum{foo=\"bar\"} 18900\n\t  m_count{foo=\"bar\"} 120\n")
+
+	// Verify Reset
+	h.Reset()
+	bb.Reset()
+	WritePrometheus(&bb, false)
+	result = bb.String()
+	if strings.Contains(result, name) {
+		t.Fatalf("unexpected histogram %s in the WritePrometheus output; got\n%s", name, result)
+	}
 
 	// Verify supported ranges
-	for i := -100; i < 100; i++ {
-		h.Update(1.23 * math.Pow10(i))
+	for e10 := -100; e10 < 100; e10++ {
+		for offset := 0; offset < bucketSize; offset++ {
+			m := 1 + float64(offset+1)/decimalMultiplier
+			f1 := m * math.Pow10(e10)
+			h.Update(f1)
+			f2 := (m + 0.5/decimalMultiplier) * math.Pow10(e10)
+			h.Update(f2)
+			f3 := (m + 2*decimalPrecision) * math.Pow10(e10)
+			h.Update(f3)
+		}
 	}
 	h.UpdateDuration(time.Now().Add(-time.Minute))
 
 	// Verify edge cases
+	h.Update(0)
 	h.Update(math.Inf(1))
+	h.Update(math.Inf(-1))
 	h.Update(math.NaN())
 	h.Update(-123)
 
@@ -139,29 +146,29 @@ func TestHistogramConcurrent(t *testing.T) {
 	name := "HistogramConcurrent"
 	h := NewHistogram(name)
 	err := testConcurrent(func() error {
-		for i := 0; i < 10; i++ {
-			h.Update(float64(i))
+		for f := 0.6; f < 1.4; f += 0.1 {
+			h.Update(f)
 		}
 		return nil
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	testMarshalTo(t, h, "prefix", "prefix_bucket{vmrange=\"0...0\"} 5\nprefix_bucket{vmrange=\"9e-1...1\"} 5\nprefix_bucket{vmrange=\"1...2\"} 5\nprefix_bucket{vmrange=\"2...3\"} 5\nprefix_bucket{vmrange=\"3...4\"} 5\nprefix_bucket{vmrange=\"4...5\"} 5\nprefix_bucket{vmrange=\"5...6\"} 5\nprefix_bucket{vmrange=\"6...7\"} 5\nprefix_bucket{vmrange=\"7...8\"} 5\nprefix_bucket{vmrange=\"8...9\"} 5\nprefix_sum 225\nprefix_count 50\n")
+	testMarshalTo(t, h, "prefix", "prefix_bucket{vmrange=\"5.8e-1...6.0e-1\"} 5\nprefix_bucket{vmrange=\"6.8e-1...7.0e-1\"} 5\nprefix_bucket{vmrange=\"7.8e-1...8.0e-1\"} 5\nprefix_bucket{vmrange=\"8.8e-1...9.0e-1\"} 5\nprefix_bucket{vmrange=\"9.8e-1...1.0e0\"} 5\nprefix_bucket{vmrange=\"1.0e0...1.2e0\"} 10\nprefix_bucket{vmrange=\"1.2e0...1.4e0\"} 5\nprefix_sum 38\nprefix_count 40\n")
 
 	var labels []string
-	var values []uint64
-	h.VisitNonZeroBuckets(func(label string, value uint64) {
+	var counts []uint64
+	h.VisitNonZeroBuckets(func(label string, count uint64) {
 		labels = append(labels, label)
-		values = append(values, value)
+		counts = append(counts, count)
 	})
-	labelsExpected := []string{"0...0", "9e-1...1", "1...2", "2...3", "3...4", "4...5", "5...6", "6...7", "7...8", "8...9"}
+	labelsExpected := []string{"5.8e-1...6.0e-1", "6.8e-1...7.0e-1", "7.8e-1...8.0e-1", "8.8e-1...9.0e-1", "9.8e-1...1.0e0", "1.0e0...1.2e0", "1.2e0...1.4e0"}
 	if !reflect.DeepEqual(labels, labelsExpected) {
 		t.Fatalf("unexpected labels; got %v; want %v", labels, labelsExpected)
 	}
-	valuesExpected := []uint64{5, 5, 5, 5, 5, 5, 5, 5, 5, 5}
-	if !reflect.DeepEqual(values, valuesExpected) {
-		t.Fatalf("unexpected values; got %v; want %v", values, valuesExpected)
+	countsExpected := []uint64{5, 5, 5, 5, 5, 10, 5}
+	if !reflect.DeepEqual(counts, countsExpected) {
+		t.Fatalf("unexpected counts; got %v; want %v", counts, countsExpected)
 	}
 }
 
@@ -173,7 +180,7 @@ func TestHistogramWithTags(t *testing.T) {
 	var bb bytes.Buffer
 	WritePrometheus(&bb, false)
 	result := bb.String()
-	namePrefixWithTag := `TestHistogram_bucket{tag="foo",vmrange="1e2...2e2"} 1` + "\n"
+	namePrefixWithTag := `TestHistogram_bucket{tag="foo",vmrange="1.2e2...1.4e2"} 1` + "\n"
 	if !strings.Contains(result, namePrefixWithTag) {
 		t.Fatalf("missing histogram %s in the WritePrometheus output; got\n%s", namePrefixWithTag, result)
 	}
