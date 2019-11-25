@@ -99,8 +99,8 @@ func TestHistogramSerial(t *testing.T) {
 	}
 
 	// Make sure the histogram prints <prefix>_xbucket on marshalTo call
-	testMarshalTo(t, h, "prefix", "prefix_bucket{vmrange=\"9.6e1...9.8e1\"} 1\nprefix_bucket{vmrange=\"9.8e1...1.0e2\"} 2\nprefix_bucket{vmrange=\"1.0e2...1.2e2\"} 20\nprefix_bucket{vmrange=\"1.2e2...1.4e2\"} 20\nprefix_bucket{vmrange=\"1.4e2...1.6e2\"} 20\nprefix_bucket{vmrange=\"1.6e2...1.8e2\"} 20\nprefix_bucket{vmrange=\"1.8e2...2.0e2\"} 20\nprefix_bucket{vmrange=\"2.0e2...2.2e2\"} 17\nprefix_sum 18900\nprefix_count 120\n")
-	testMarshalTo(t, h, `	  m{foo="bar"}`, "\t  m_bucket{foo=\"bar\",vmrange=\"9.6e1...9.8e1\"} 1\n\t  m_bucket{foo=\"bar\",vmrange=\"9.8e1...1.0e2\"} 2\n\t  m_bucket{foo=\"bar\",vmrange=\"1.0e2...1.2e2\"} 20\n\t  m_bucket{foo=\"bar\",vmrange=\"1.2e2...1.4e2\"} 20\n\t  m_bucket{foo=\"bar\",vmrange=\"1.4e2...1.6e2\"} 20\n\t  m_bucket{foo=\"bar\",vmrange=\"1.6e2...1.8e2\"} 20\n\t  m_bucket{foo=\"bar\",vmrange=\"1.8e2...2.0e2\"} 20\n\t  m_bucket{foo=\"bar\",vmrange=\"2.0e2...2.2e2\"} 17\n\t  m_sum{foo=\"bar\"} 18900\n\t  m_count{foo=\"bar\"} 120\n")
+	testMarshalTo(t, h, "prefix", "prefix_bucket{vmrange=\"9.5e1...1.0e2\"} 3\nprefix_bucket{vmrange=\"1.0e2...1.5e2\"} 50\nprefix_bucket{vmrange=\"1.5e2...2.0e2\"} 50\nprefix_bucket{vmrange=\"2.0e2...2.5e2\"} 17\nprefix_sum 18900\nprefix_count 120\n")
+	testMarshalTo(t, h, `	  m{foo="bar"}`, "\t  m_bucket{foo=\"bar\",vmrange=\"9.5e1...1.0e2\"} 3\n\t  m_bucket{foo=\"bar\",vmrange=\"1.0e2...1.5e2\"} 50\n\t  m_bucket{foo=\"bar\",vmrange=\"1.5e2...2.0e2\"} 50\n\t  m_bucket{foo=\"bar\",vmrange=\"2.0e2...2.5e2\"} 17\n\t  m_sum{foo=\"bar\"} 18900\n\t  m_count{foo=\"bar\"} 120\n")
 
 	// Verify Reset
 	h.Reset()
@@ -154,7 +154,7 @@ func TestHistogramConcurrent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	testMarshalTo(t, h, "prefix", "prefix_bucket{vmrange=\"5.8e-1...6.0e-1\"} 5\nprefix_bucket{vmrange=\"6.8e-1...7.0e-1\"} 5\nprefix_bucket{vmrange=\"7.8e-1...8.0e-1\"} 5\nprefix_bucket{vmrange=\"8.8e-1...9.0e-1\"} 5\nprefix_bucket{vmrange=\"9.8e-1...1.0e0\"} 5\nprefix_bucket{vmrange=\"1.0e0...1.2e0\"} 10\nprefix_bucket{vmrange=\"1.2e0...1.4e0\"} 5\nprefix_sum 38\nprefix_count 40\n")
+	testMarshalTo(t, h, "prefix", "prefix_bucket{vmrange=\"5.5e-1...6.0e-1\"} 5\nprefix_bucket{vmrange=\"6.5e-1...7.0e-1\"} 5\nprefix_bucket{vmrange=\"7.5e-1...8.0e-1\"} 5\nprefix_bucket{vmrange=\"8.5e-1...9.0e-1\"} 5\nprefix_bucket{vmrange=\"9.5e-1...1.0e0\"} 5\nprefix_bucket{vmrange=\"1.0e0...1.5e0\"} 15\nprefix_sum 38\nprefix_count 40\n")
 
 	var labels []string
 	var counts []uint64
@@ -162,11 +162,11 @@ func TestHistogramConcurrent(t *testing.T) {
 		labels = append(labels, label)
 		counts = append(counts, count)
 	})
-	labelsExpected := []string{"5.8e-1...6.0e-1", "6.8e-1...7.0e-1", "7.8e-1...8.0e-1", "8.8e-1...9.0e-1", "9.8e-1...1.0e0", "1.0e0...1.2e0", "1.2e0...1.4e0"}
+	labelsExpected := []string{"5.5e-1...6.0e-1", "6.5e-1...7.0e-1", "7.5e-1...8.0e-1", "8.5e-1...9.0e-1", "9.5e-1...1.0e0", "1.0e0...1.5e0"}
 	if !reflect.DeepEqual(labels, labelsExpected) {
 		t.Fatalf("unexpected labels; got %v; want %v", labels, labelsExpected)
 	}
-	countsExpected := []uint64{5, 5, 5, 5, 5, 10, 5}
+	countsExpected := []uint64{5, 5, 5, 5, 5, 15}
 	if !reflect.DeepEqual(counts, countsExpected) {
 		t.Fatalf("unexpected counts; got %v; want %v", counts, countsExpected)
 	}
@@ -180,7 +180,7 @@ func TestHistogramWithTags(t *testing.T) {
 	var bb bytes.Buffer
 	WritePrometheus(&bb, false)
 	result := bb.String()
-	namePrefixWithTag := `TestHistogram_bucket{tag="foo",vmrange="1.2e2...1.4e2"} 1` + "\n"
+	namePrefixWithTag := `TestHistogram_bucket{tag="foo",vmrange="1.0e2...1.5e2"} 1` + "\n"
 	if !strings.Contains(result, namePrefixWithTag) {
 		t.Fatalf("missing histogram %s in the WritePrometheus output; got\n%s", namePrefixWithTag, result)
 	}
