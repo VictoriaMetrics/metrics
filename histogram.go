@@ -19,6 +19,8 @@ const (
 
 // Histogram is a histogram for non-negative values with automatically created buckets.
 //
+// See https://medium.com/@valyala/improving-histogram-usability-for-prometheus-and-grafana-bc7e5df0e350
+//
 // Each bucket contains a counter for values in the given range.
 // Each non-empty bucket is exposed via the following metric:
 //
