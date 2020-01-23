@@ -24,29 +24,29 @@ func NewFloatCounter(name string) *FloatCounter {
 //
 // It may be used as a gauge if Add and Sub are called.
 type FloatCounter struct {
-	mu sync.RWMutex
+	mu sync.Mutex
 	n  float64
 }
 
 // Add adds n to fc.
 func (fc *FloatCounter) Add(n float64) {
 	fc.mu.Lock()
-	fc.n = fc.n + n
+	fc.n += n
 	fc.mu.Unlock()
 }
 
 // Sub substracts n from fc.
 func (fc *FloatCounter) Sub(n float64) {
 	fc.mu.Lock()
-	fc.n = fc.n - n
+	fc.n -= n
 	fc.mu.Unlock()
 }
 
 // Get returns the current value for fc.
 func (fc *FloatCounter) Get() float64 {
-	fc.mu.RLock()
+	fc.mu.Lock()
 	n := fc.n
-	fc.mu.RUnlock()
+	fc.mu.Unlock()
 	return n
 }
 
