@@ -438,3 +438,28 @@ func (s *Set) registerMetric(name string, m metric) {
 		panic(fmt.Errorf("BUG: metric %q is already registered", name))
 	}
 }
+
+// UnregisterMetric will remove a registered metric
+func (s *Set) UnregisterMetric(name string) bool {
+	s.mu.Lock()
+	nm, ok := s.m[name]
+	if ok {
+		delete(s.m, name)
+		for i, a := range s.a {
+			if a == nm {
+				s.a = append(s.a[:i], s.a[i+1:]...)
+			}
+		}
+	}
+	s.mu.Unlock()
+	return ok
+}
+
+// ListMetricNames will return a list of all registered metrics
+func (s *Set) ListMetricNames() []string {
+	var list []string
+	for name := range s.m {
+		list = append(list, name)
+	}
+	return list
+}
