@@ -440,10 +440,7 @@ func (s *Set) registerMetric(name string, m metric) {
 }
 
 // UnregisterMetric will remove a registered metric
-func (s *Set) UnregisterMetric(name string) {
-	if err := validateMetric(name); err != nil {
-		panic(fmt.Errorf("BUG: invalid metric name %q: %s", name, err))
-	}
+func (s *Set) UnregisterMetric(name string) bool {
 	s.mu.Lock()
 	nm, ok := s.m[name]
 	if ok {
@@ -454,13 +451,6 @@ func (s *Set) UnregisterMetric(name string) {
 			}
 		}
 	}
-	s.mu.Unlock()
-}
-
-// HasMetric will return true, if the metric exists
-func (s *Set) HasMetric(name string) bool {
-	s.mu.Lock()
-	_, ok := s.m[name]
 	s.mu.Unlock()
 	return ok
 }

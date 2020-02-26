@@ -69,20 +69,26 @@ func TestUnregisterMetric(t *testing.T) {
 		c := s.NewCounter(fmt.Sprintf("counter_%d", i))
 		c.Inc()
 	}
-	if !s.HasMetric("counter_1") {
-		t.Fatalf("Metric counter_1 should be registered")
+	// Unregister existing counters
+	ok := s.UnregisterMetric("counter_1")
+	if !ok {
+		t.Fatalf("Metric counter_1 should return true for deregistering")
 	}
-	if !s.HasMetric("counter_3") {
-		t.Fatalf("Metric counter_1 should be registered")
+
+	// Unregister twice must return false
+	ok = s.UnregisterMetric("counter_1")
+	if ok {
+		t.Fatalf("Metric counter_1 should not return false on unregister twice")
 	}
-	// Remove counters
-	s.UnregisterMetric("counter_1")
-	s.UnregisterMetric("counter_3")
+
 	// Validate counters are removed
-	if s.HasMetric("counter_1") {
-		t.Fatalf("Metric counter_1 should be deregistered")
+	ok = false
+	for _, n := range s.ListMetricNames() {
+		if n == "counter_1" {
+			ok = true
+		}
 	}
-	if s.HasMetric("counter_3") {
-		t.Fatalf("Metric counter_3 should be deregistered")
+	if ok {
+		t.Fatalf("Metric counter_1 and counter_3 must not be listed anymore after unregister")
 	}
 }
