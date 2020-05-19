@@ -55,6 +55,12 @@ func TestGetBucketIdxAndOffset(t *testing.T) {
 	f((1+prec)*math.Pow10(e10Max), -1, 2)
 	f((1+3*step+prec)*math.Pow10(e10Max), -1, 2)
 	f(math.Inf(1), -1, 2)
+
+	f(999, 11, 17)
+	f(1000, 11, 17)
+	f(1001, 12, 0)
+	f(1002, 12, 0)
+	f(1003, 12, 0)
 }
 
 func TestGetVMRange(t *testing.T) {
