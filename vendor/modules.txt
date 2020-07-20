@@ -1,4 +1,4 @@
 # github.com/valyala/fastrand v1.0.0
 github.com/valyala/fastrand
-# github.com/valyala/histogram v1.1.1
+# github.com/valyala/histogram v1.1.2
 github.com/valyala/histogram
