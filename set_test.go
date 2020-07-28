@@ -88,13 +88,19 @@ func TestSetUnregisterMetric(t *testing.T) {
 	}
 
 	// Validate metrics are removed
+	const cName, smName = "counter_1", "summary_1"
 	ok := false
 	for _, n := range s.ListMetricNames() {
-		if n == "counter_1" || n == "summary_1" {
+		if n == cName || n == smName {
 			ok = true
 		}
 	}
 	if ok {
 		t.Fatalf("Metric counter_1 and summary_1 must not be listed anymore after unregister")
 	}
+
+	// re-register with the same names supposed
+	// to be successful
+	s.NewCounter(cName).Inc()
+	s.NewSummary(smName).Update(float64(1))
 }
