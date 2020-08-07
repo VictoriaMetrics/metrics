@@ -2,7 +2,9 @@ package metrics
 
 import (
 	"fmt"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestNewSet(t *testing.T) {
@@ -64,31 +66,38 @@ func TestSetListMetricNames(t *testing.T) {
 
 func TestSetUnregisterMetric(t *testing.T) {
 	s := NewSet()
+	const cName, smName = "counter_1", "summary_1"
 	// Initialize a few metrics
-	for i := 0; i < 5; i++ {
-		c := s.NewCounter(fmt.Sprintf("counter_%d", i))
-		c.Inc()
-		sm := s.NewSummary(fmt.Sprintf("summary_%d", i))
-		sm.Update(float64(i))
-	}
+	c := s.NewCounter(cName)
+	c.Inc()
+	sm := s.NewSummary(smName)
+	sm.Update(1)
+
 	// Unregister existing metrics
-	if !s.UnregisterMetric("counter_1") {
-		t.Fatalf("UnregisterMetric(counter_1) must return true")
+	if !s.UnregisterMetric(cName) {
+		t.Fatalf("UnregisterMetric(%s) must return true", cName)
 	}
-	if !s.UnregisterMetric("summary_1") {
-		t.Fatalf("UnregisterMetric(summary_1) must return true")
+	if !s.UnregisterMetric(smName) {
+		t.Fatalf("UnregisterMetric(%s) must return true", smName)
 	}
 
 	// Unregister twice must return false
-	if s.UnregisterMetric("counter_1") {
-		t.Fatalf("UnregisterMetric(counter_1) must return false on unregistered metric")
+	if s.UnregisterMetric(cName) {
+		t.Fatalf("UnregisterMetric(%s) must return false on unregistered metric", cName)
 	}
-	if s.UnregisterMetric("summary_1") {
-		t.Fatalf("UnregisterMetric(summary_1) must return false on unregistered metric")
+	if s.UnregisterMetric(smName) {
+		t.Fatalf("UnregisterMetric(%s) must return false on unregistered metric", smName)
+	}
+
+	// verify that registry is empty
+	if len(s.m) != 0 {
+		t.Fatalf("expected metrics map to be empty; got %d elements", len(s.m))
+	}
+	if len(s.a) != 0 {
+		t.Fatalf("expected metrics list to be empty; got %d elements", len(s.a))
 	}
 
 	// Validate metrics are removed
-	const cName, smName = "counter_1", "summary_1"
 	ok := false
 	for _, n := range s.ListMetricNames() {
 		if n == cName || n == smName {
@@ -103,4 +112,41 @@ func TestSetUnregisterMetric(t *testing.T) {
 	// to be successful
 	s.NewCounter(cName).Inc()
 	s.NewSummary(smName).Update(float64(1))
+}
+
+// TestRegisterUnregister tests concurrent access to
+// metrics during registering and unregistering.
+// Should be tested specifically with `-race` enabled.
+func TestRegisterUnregister(t *testing.T) {
+	const (
+		workers    = 16
+		iterations = 1e3
+	)
+	wg := sync.WaitGroup{}
+	wg.Add(workers)
+	for n := 0; n < workers; n++ {
+		go func() {
+			defer wg.Done()
+			now := time.Now()
+			for i := 0; i < iterations; i++ {
+				iteration := i % 5
+				counter := fmt.Sprintf(`counter{iteration="%d"}`, iteration)
+				GetOrCreateCounter(counter).Add(i)
+				UnregisterMetric(counter)
+
+				histogram := fmt.Sprintf(`histogram{iteration="%d"}`, iteration)
+				GetOrCreateHistogram(histogram).UpdateDuration(now)
+				UnregisterMetric(histogram)
+
+				gauge := fmt.Sprintf(`gauge{iteration="%d"}`, iteration)
+				GetOrCreateGauge(gauge, func() float64 { return 1 })
+				UnregisterMetric(gauge)
+
+				summary := fmt.Sprintf(`summary{iteration="%d"}`, iteration)
+				GetOrCreateSummary(summary).Update(float64(i))
+				UnregisterMetric(summary)
+			}
+		}()
+	}
+	wg.Wait()
 }
