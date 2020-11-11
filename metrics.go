@@ -13,7 +13,9 @@
 package metrics
 
 import (
+	"fmt"
 	"io"
+	"strings"
 )
 
 type namedMetric struct {
@@ -22,7 +24,32 @@ type namedMetric struct {
 }
 
 type metric interface {
-	marshalTo(prefix string, w io.Writer)
+	marshalTo(prefix string, w io.Writer, writeType bool)
+}
+
+type metricType int
+const (
+	counterType metricType = iota
+	gaugeType
+	histogramType
+	summaryType
+	untypedType
+)
+
+func (t metricType) String() string {
+	switch t {
+	case counterType:   return "counter"
+	case gaugeType:     return "gauge"
+	case histogramType: return "histogram"
+	case summaryType:   return "summary"
+	case untypedType:   return "untyped"
+	default:            return "untyped"
+	}
+}
+
+// writeTypeTo writes a type to w.
+func writeTypeTo(prefix string, t metricType, w io.Writer) {
+	fmt.Fprintf(w, "# TYPE %s %s\n", strings.Split(prefix, "{")[0], t)
 }
 
 var defaultSet = NewSet()
@@ -45,6 +72,14 @@ func WritePrometheus(w io.Writer, exposeProcessMetrics bool) {
 	}
 }
 
+// WritePrometheusTyped is like WritePrometheus but also writes types.
+func WritePrometheusTyped(w io.Writer, exposeProcessMetrics bool) {
+	defaultSet.WritePrometheusTyped(w)
+	if exposeProcessMetrics {
+		WriteProcessMetricsTyped(w)
+	}
+}
+
 // WriteProcessMetrics writes additional process metrics in Prometheus format to w.
 //
 // Various `go_*` and `process_*` metrics are exposed for the currently
@@ -59,8 +94,14 @@ func WritePrometheus(w io.Writer, exposeProcessMetrics bool) {
 //     })
 //
 func WriteProcessMetrics(w io.Writer) {
-	writeGoMetrics(w)
-	writeProcessMetrics(w)
+	writeGoMetrics(w, false)
+	writeProcessMetrics(w, false)
+}
+
+// WriteProcessMetricsTyped is like WriteProcessMetrics but also writes types.
+func WriteProcessMetricsTyped(w io.Writer) {
+	writeGoMetrics(w, true)
+	writeProcessMetrics(w, true)
 }
 
 // UnregisterMetric removes metric with the given name from default set.

@@ -36,7 +36,10 @@ func (g *Gauge) Get() float64 {
 	return g.f()
 }
 
-func (g *Gauge) marshalTo(prefix string, w io.Writer) {
+func (g *Gauge) marshalTo(prefix string, w io.Writer, writeType bool) {
+	if writeType {
+		writeTypeTo(prefix, gaugeType, w)
+	}
 	v := g.f()
 	if float64(int64(v)) == v {
 		// Marshal integer values without scientific notation

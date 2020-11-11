@@ -40,7 +40,7 @@ type procStat struct {
 	Rss         int
 }
 
-func writeProcessMetrics(w io.Writer) {
+func writeProcessMetrics(w io.Writer, writeType bool) {
 	data, err := ioutil.ReadFile(statFilepath)
 	if err != nil {
 		log.Printf("ERROR: cannot open %s: %s", statFilepath, err)
@@ -64,19 +64,34 @@ func writeProcessMetrics(w io.Writer) {
 		return
 	}
 
+	t := func(name string, t metricType) {
+		if writeType {
+			writeTypeTo(name, t, w)
+		}
+	}
+
 	// It is expensive obtaining `process_open_fds` when big number of file descriptors is opened,
 	// don't do it here.
 
 	utime := float64(p.Utime) / userHZ
 	stime := float64(p.Stime) / userHZ
+	t("process_cpu_seconds_system_total", counterType)
 	fmt.Fprintf(w, "process_cpu_seconds_system_total %g\n", stime)
+	t("process_cpu_seconds_total", counterType)
 	fmt.Fprintf(w, "process_cpu_seconds_total %g\n", utime+stime)
+	t("process_cpu_seconds_user_total", counterType)
 	fmt.Fprintf(w, "process_cpu_seconds_user_total %g\n", utime)
+	t("process_major_pagefaults_total", counterType)
 	fmt.Fprintf(w, "process_major_pagefaults_total %d\n", p.Majflt)
+	t("process_minor_pagefaults_total", counterType)
 	fmt.Fprintf(w, "process_minor_pagefaults_total %d\n", p.Minflt)
+	t("process_num_threads", gaugeType)
 	fmt.Fprintf(w, "process_num_threads %d\n", p.NumThreads)
+	t("process_resident_memory_bytes", gaugeType)
 	fmt.Fprintf(w, "process_resident_memory_bytes %d\n", p.Rss*4096)
+	t("process_start_time_seconds", gaugeType)
 	fmt.Fprintf(w, "process_start_time_seconds %d\n", startTimeSeconds)
+	t("process_virtual_memory_bytes", gaugeType)
 	fmt.Fprintf(w, "process_virtual_memory_bytes %d\n", p.Vsize)
 }
 

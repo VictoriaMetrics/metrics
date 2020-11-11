@@ -98,7 +98,11 @@ func (sm *Summary) UpdateDuration(startTime time.Time) {
 	sm.Update(d)
 }
 
-func (sm *Summary) marshalTo(prefix string, w io.Writer) {
+func (sm *Summary) marshalTo(prefix string, w io.Writer, writeType bool) {
+	if writeType {
+		writeTypeTo(prefix, summaryType, w)
+	}
+
 	// Marshal only *_sum and *_count values.
 	// Quantile values should be already updated by the caller via sm.updateQuantiles() call.
 	// sm.quantileValues will be marshaled later via quantileValue.marshalTo.
@@ -187,7 +191,7 @@ type quantileValue struct {
 	idx int
 }
 
-func (qv *quantileValue) marshalTo(prefix string, w io.Writer) {
+func (qv *quantileValue) marshalTo(prefix string, w io.Writer, writeType bool) {
 	qv.sm.mu.Lock()
 	v := qv.sm.quantileValues[qv.idx]
 	qv.sm.mu.Unlock()

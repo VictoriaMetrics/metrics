@@ -138,7 +138,7 @@ func testConcurrent(f func() error) error {
 func testMarshalTo(t *testing.T, m metric, prefix, resultExpected string) {
 	t.Helper()
 	var bb bytes.Buffer
-	m.marshalTo(prefix, &bb)
+	m.marshalTo(prefix, &bb, false)
 	result := bb.String()
 	if result != resultExpected {
 		t.Fatalf("unexpected marshaled metric;\ngot\n%q\nwant\n%q", result, resultExpected)

@@ -30,6 +30,16 @@ func NewSet() *Set {
 
 // WritePrometheus writes all the metrics from s to w in Prometheus format.
 func (s *Set) WritePrometheus(w io.Writer) {
+	s.writePrometheus(w, false)
+}
+
+// WritePrometheusTyped writes all the metrics from s to w in Prometheus format
+// with types.
+func (s *Set) WritePrometheusTyped(w io.Writer) {
+	s.writePrometheus(w, true)
+}
+
+func (s *Set) writePrometheus(w io.Writer, writeTypes bool) {
 	// Collect all the metrics in in-memory buffer in order to prevent from long locking due to slow w.
 	var bb bytes.Buffer
 	lessFunc := func(i, j int) bool {
@@ -48,7 +58,7 @@ func (s *Set) WritePrometheus(w io.Writer) {
 	// Call marshalTo without the global lock, since certain metric types such as Gauge
 	// can call a callback, which, in turn, can try calling s.mu.Lock again.
 	for _, nm := range sa {
-		nm.metric.marshalTo(nm.name, &bb)
+		nm.metric.marshalTo(nm.name, &bb, writeTypes)
 	}
 	w.Write(bb.Bytes())
 }

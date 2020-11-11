@@ -58,7 +58,10 @@ func (fc *FloatCounter) Set(n float64) {
 }
 
 // marshalTo marshals fc with the given prefix to w.
-func (fc *FloatCounter) marshalTo(prefix string, w io.Writer) {
+func (fc *FloatCounter) marshalTo(prefix string, w io.Writer, writeType bool) {
+	if writeType {
+		writeTypeTo(prefix, counterType, w)
+	}
 	v := fc.Get()
 	fmt.Fprintf(w, "%s %g\n", prefix, v)
 }

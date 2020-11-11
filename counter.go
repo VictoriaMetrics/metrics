@@ -53,7 +53,10 @@ func (c *Counter) Set(n uint64) {
 }
 
 // marshalTo marshals c with the given prefix to w.
-func (c *Counter) marshalTo(prefix string, w io.Writer) {
+func (c *Counter) marshalTo(prefix string, w io.Writer, writeType bool) {
+	if writeType {
+		writeTypeTo(prefix, counterType, w)
+	}
 	v := c.Get()
 	fmt.Fprintf(w, "%s %d\n", prefix, v)
 }

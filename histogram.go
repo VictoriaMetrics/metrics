@@ -233,7 +233,10 @@ var (
 	bucketRangesOnce sync.Once
 )
 
-func (h *Histogram) marshalTo(prefix string, w io.Writer) {
+func (h *Histogram) marshalTo(prefix string, w io.Writer, writeType bool) {
+	if writeType {
+		writeTypeTo(prefix, histogramType, w)
+	}
 	countTotal := uint64(0)
 	h.VisitNonZeroBuckets(func(vmrange string, count uint64) {
 		tag := fmt.Sprintf("vmrange=%q", vmrange)
