@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -87,74 +86,70 @@ func writeProcessMetrics(w io.Writer) {
 
 var startTimeSeconds = time.Now().Unix()
 
-const fdReadChunkSize = 512
-
-func WriteFDMetrics(w io.Writer){
+// WriteFDMetrics writes process_max_fds and process_open_fds metrics to w.
+func writeFDMetrics(w io.Writer) {
 	totalOpenFDs, err := getOpenFDsCount("/proc/self/fd")
 	if err != nil {
-		log.Printf("ERROR: %v",err)
+		log.Printf("ERROR: cannot determine open file descriptors count: %s", err)
 		return
 	}
 	maxOpenFDs, err := getMaxFilesLimit("/proc/self/limits")
 	if err != nil {
-		log.Printf("ERROR: %v",err)
+		log.Printf("ERROR: cannot determine the limit on open file descritors: %s", err)
 		return
 	}
-	fmt.Fprintf(w,"process_max_fds %d\n",maxOpenFDs)
-	fmt.Fprintf(w,"process_open_fds %d\n",totalOpenFDs)
+	fmt.Fprintf(w, "process_max_fds %d\n", maxOpenFDs)
+	fmt.Fprintf(w, "process_open_fds %d\n", totalOpenFDs)
 }
 
-
-func getOpenFDsCount(path string)(uint64,error){
+func getOpenFDsCount(path string) (uint64, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return 0,fmt.Errorf("cannot open process fd path: %q, err: %v",path,err)
+		return 0, err
 	}
 	defer f.Close()
 	var totalOpenFDs uint64
 	for {
-		names, err := f.Readdirnames(fdReadChunkSize)
-		if err == io.EOF{
+		names, err := f.Readdirnames(512)
+		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			return 0, fmt.Errorf("unexpected error at readdirnames: %v",err)
+			return 0, fmt.Errorf("unexpected error at Readdirnames: %s", err)
 		}
 		totalOpenFDs += uint64(len(names))
 	}
 	return totalOpenFDs, nil
 }
 
-var limitsRe = regexp.MustCompile(`(Max \w+\s{0,1}?\w*\s{0,1}\w*)\s{2,}(\w+)\s+(\w+)`)
-
-func getMaxFilesLimit(path string)(uint64,error){
+func getMaxFilesLimit(path string) (uint64, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return 0,fmt.Errorf("cannot open path: %q for max files limit, err: %w",path,err)
+		return 0, err
 	}
 	defer f.Close()
+	prefix := "Max open files"
 	scan := bufio.NewScanner(f)
-	// skip first line
-	scan.Scan()
-	for scan.Scan(){
-		text := scan.Text()
-		if !strings.HasPrefix(text,"Max open files"){
+	for scan.Scan() {
+		s := scan.Text()
+		if !strings.HasPrefix(s, prefix) {
 			continue
 		}
-		items := limitsRe.FindStringSubmatch(text)
-		if len(items) != 4 {
-			return 0,fmt.Errorf("unxpected fields num for limits file, want: %d, got: %d, line: %q",4,len(items),text)
+		text := strings.TrimSpace(s[len(prefix):])
+		// Extract soft limit.
+		n := strings.IndexByte(text, ' ')
+		if n < 0 {
+			return 0, fmt.Errorf("cannot extract soft limit from %q", s)
 		}
-		// use soft limit.
-		limit := items[2]
-		if limit == "unlimited"{
-			return 18446744073709551615,nil
+		text = text[:n]
+		if text == "unlimited" {
+			return 1<<64 - 1, nil
 		}
-		limitUint, err := strconv.ParseUint(limit,10,64)
+		limit, err := strconv.ParseUint(text, 10, 64)
 		if err != nil {
-			return 0, fmt.Errorf("cannot parse limit: %q as uint64: %w",limit,err)
+			return 0, fmt.Errorf("cannot parse soft limit from %q: %s", s, err)
 		}
-		return limitUint,nil
+		return limit, nil
 	}
-	return 0, fmt.Errorf("max open files limit wasn't found")
+	return 0, fmt.Errorf("cannot find max open files limit")
 }
