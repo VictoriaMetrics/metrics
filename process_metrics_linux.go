@@ -1,11 +1,16 @@
 package metrics
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
+	"os"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -81,3 +86,75 @@ func writeProcessMetrics(w io.Writer) {
 }
 
 var startTimeSeconds = time.Now().Unix()
+
+const fdReadChunkSize = 512
+
+func WriteFDMetrics(w io.Writer){
+	totalOpenFDs, err := getOpenFDsCount("/proc/self/fd")
+	if err != nil {
+		log.Printf("ERROR: %v",err)
+		return
+	}
+	maxOpenFDs, err := getMaxFilesLimit("/proc/self/limits")
+	if err != nil {
+		log.Printf("ERROR: %v",err)
+		return
+	}
+	fmt.Fprintf(w,"process_max_fds %d\n",maxOpenFDs)
+	fmt.Fprintf(w,"process_open_fds %d\n",totalOpenFDs)
+}
+
+
+func getOpenFDsCount(path string)(uint64,error){
+	f, err := os.Open(path)
+	if err != nil {
+		return 0,fmt.Errorf("cannot open process fd path: %q, err: %v",path,err)
+	}
+	defer f.Close()
+	var totalOpenFDs uint64
+	for {
+		names, err := f.Readdirnames(fdReadChunkSize)
+		if err == io.EOF{
+			break
+		}
+		if err != nil {
+			return 0, fmt.Errorf("unexpected error at readdirnames: %v",err)
+		}
+		totalOpenFDs += uint64(len(names))
+	}
+	return totalOpenFDs, nil
+}
+
+var limitsRe = regexp.MustCompile(`(Max \w+\s{0,1}?\w*\s{0,1}\w*)\s{2,}(\w+)\s+(\w+)`)
+
+func getMaxFilesLimit(path string)(uint64,error){
+	f, err := os.Open(path)
+	if err != nil {
+		return 0,fmt.Errorf("cannot open path: %q for max files limit, err: %w",path,err)
+	}
+	defer f.Close()
+	scan := bufio.NewScanner(f)
+	// skip first line
+	scan.Scan()
+	for scan.Scan(){
+		text := scan.Text()
+		if !strings.HasPrefix(text,"Max open files"){
+			continue
+		}
+		items := limitsRe.FindStringSubmatch(text)
+		if len(items) != 4 {
+			return 0,fmt.Errorf("unxpected fields num for limits file, want: %d, got: %d, line: %q",4,len(items),text)
+		}
+		// use soft limit.
+		limit := items[2]
+		if limit == "unlimited"{
+			return 18446744073709551615,nil
+		}
+		limitUint, err := strconv.ParseUint(limit,10,64)
+		if err != nil {
+			return 0, fmt.Errorf("cannot parse limit: %q as uint64: %w",limit,err)
+		}
+		return limitUint,nil
+	}
+	return 0, fmt.Errorf("max open files limit wasn't found")
+}
