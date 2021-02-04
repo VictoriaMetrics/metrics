@@ -92,12 +92,12 @@ const fdReadChunkSize = 512
 func WriteFDMetrics(w io.Writer){
 	totalOpenFDs, err := getOpenFDsCount("/proc/self/fd")
 	if err != nil {
-		log.Printf("%v",err)
+		log.Printf("ERROR: %v",err)
 		return
 	}
 	maxOpenFDs, err := getMaxFilesLimit("/proc/self/limits")
 	if err != nil {
-		log.Printf("%v",err)
+		log.Printf("ERROR: %v",err)
 		return
 	}
 	fmt.Fprintf(w,"process_max_fds %d\n",maxOpenFDs)
@@ -108,7 +108,7 @@ func WriteFDMetrics(w io.Writer){
 func getOpenFDsCount(path string)(uint64,error){
 	f, err := os.Open(path)
 	if err != nil {
-		return 0,fmt.Errorf("ERROR: cannot open process fd path: %q, err: %v",path,err)
+		return 0,fmt.Errorf("cannot open process fd path: %q, err: %v",path,err)
 	}
 	defer f.Close()
 	var totalOpenFDs uint64
@@ -118,7 +118,7 @@ func getOpenFDsCount(path string)(uint64,error){
 			break
 		}
 		if err != nil {
-			return 0, fmt.Errorf("ERROR: unexpected error at readdirnames: %v",err)
+			return 0, fmt.Errorf("unexpected error at readdirnames: %v",err)
 		}
 		totalOpenFDs += uint64(len(names))
 	}
@@ -130,7 +130,7 @@ var limitsRe = regexp.MustCompile(`(Max \w+\s{0,1}?\w*\s{0,1}\w*)\s{2,}(\w+)\s+(
 func getMaxFilesLimit(path string)(uint64,error){
 	f, err := os.Open(path)
 	if err != nil {
-		return 0,fmt.Errorf("ERROR: cannot open path: %q for max files limit, err: %w",path,err)
+		return 0,fmt.Errorf("cannot open path: %q for max files limit, err: %w",path,err)
 	}
 	defer f.Close()
 	scan := bufio.NewScanner(f)
@@ -143,7 +143,7 @@ func getMaxFilesLimit(path string)(uint64,error){
 		}
 		items := limitsRe.FindStringSubmatch(text)
 		if len(items) != 4 {
-			return 0,fmt.Errorf("ERROR: unxpected fields num for limits file, want: %d, got: %d, line: %q",4,len(items),text)
+			return 0,fmt.Errorf("unxpected fields num for limits file, want: %d, got: %d, line: %q",4,len(items),text)
 		}
 		// use soft limit.
 		limit := items[2]
@@ -152,9 +152,9 @@ func getMaxFilesLimit(path string)(uint64,error){
 		}
 		limitUint, err := strconv.ParseUint(limit,10,64)
 		if err != nil {
-			return 0, fmt.Errorf("ERROR: cannot parse limit: %q as uint64: %w",limit,err)
+			return 0, fmt.Errorf("cannot parse limit: %q as uint64: %w",limit,err)
 		}
 		return limitUint,nil
 	}
-	return 0, fmt.Errorf("ERROR: max open files limit wasn't found")
+	return 0, fmt.Errorf("max open files limit wasn't found")
 }
