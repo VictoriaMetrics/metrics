@@ -97,6 +97,8 @@ prefix_count 120
 	h.Update(math.Inf(-1))
 	h.Update(math.NaN())
 	h.Update(-123)
+	// See https://github.com/VictoriaMetrics/VictoriaMetrics/issues/1096
+	h.Update(math.Float64frombits(0x3e112e0be826d695))
 
 	// Make sure the histogram becomes visible in the output of WritePrometheus,
 	// since now it contains values.
