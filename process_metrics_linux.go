@@ -81,7 +81,7 @@ func writeProcessMetrics(w io.Writer) {
 	fmt.Fprintf(w, "process_resident_memory_bytes %d\n", p.Rss*4096)
 	fmt.Fprintf(w, "process_start_time_seconds %d\n", startTimeSeconds)
 	fmt.Fprintf(w, "process_virtual_memory_bytes %d\n", p.Vsize)
-
+	writeProcessMemMetrics(w)
 	writeIOMetrics(w)
 }
 
@@ -197,4 +197,68 @@ func getMaxFilesLimit(path string) (uint64, error) {
 		return limit, nil
 	}
 	return 0, fmt.Errorf("cannot find max open files limit")
+}
+
+// https://man7.org/linux/man-pages/man5/procfs.5.html
+type memStats struct {
+	vmPeak   uint64
+	rssPeak  uint64
+	rssAnon  uint64
+	rssFile  uint64
+	rssShmem uint64
+}
+
+func writeProcessMemMetrics(w io.Writer) {
+	ms, err := getMemStats("/proc/self/status")
+	if err != nil {
+		log.Printf("ERROR: cannot determine memory status: %s", err)
+		return
+	}
+	fmt.Fprintf(w, "process_virtual_memory_peak_bytes %d\n", ms.vmPeak)
+	fmt.Fprintf(w, "process_resident_memory_peak_bytes %d\n", ms.rssPeak)
+	fmt.Fprintf(w, "process_resident_memory_anon_bytes %d\n", ms.rssAnon)
+	fmt.Fprintf(w, "process_resident_memory_file_bytes %d\n", ms.rssFile)
+	fmt.Fprintf(w, "process_resident_memory_shared_bytes %d\n", ms.rssShmem)
+
+}
+
+func getMemStats(path string) (*memStats, error) {
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var ms memStats
+	lines := strings.Split(string(data), "\n")
+	for _, s := range lines {
+		if !strings.HasPrefix(s, "Vm") && !strings.HasPrefix(s, "Rss") {
+			continue
+		}
+		// Extract key value.
+		line := strings.Fields(s)
+		if len(line) != 3 {
+			return nil, fmt.Errorf("cannot extract soft limit from %q", s)
+		}
+		memStatName := line[0]
+		memStatValue := line[1]
+		value, err := strconv.ParseUint(memStatValue, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse soft limit from %q: %s", s, err)
+		}
+		if line[2] == "kB" {
+			value = value * 1024
+		}
+		switch memStatName {
+		case "VmPeak:":
+			ms.vmPeak = value
+		case "VmHWM:":
+			ms.rssPeak = value
+		case "RssAnon:":
+			ms.rssAnon = value
+		case "RssFile:":
+			ms.rssFile = value
+		case "RssShmem:":
+			ms.rssShmem = value
+		}
+	}
+	return &ms, nil
 }

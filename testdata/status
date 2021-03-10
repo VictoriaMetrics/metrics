@@ -1,0 +1,115 @@
+Name:	victoria-metric
+Umask:	0022
+State:	S (sleeping)
+Tgid:	1
+Ngid:	0
+Pid:	1
+PPid:	0
+TracerPid:	0
+Uid:	0	0	0	0
+Gid:	0	0	0	0
+FDSize:	256
+Groups:	1 2 3 4 6 10 11 20 26 27
+NStgid:	1
+NSpid:	1
+NSpgid:	1
+NSsid:	1
+VmPeak:	 2080548 kB
+VmSize:	 2080464 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	  195976 kB
+VmRSS:	  105212 kB
+RssAnon:	   94092 kB
+RssFile:	   11120 kB
+RssShmem:	       0 kB
+VmData:	  632076 kB
+VmStk:	     132 kB
+VmExe:	    7004 kB
+VmLib:	       8 kB
+VmPTE:	     940 kB
+VmSwap:	       0 kB
+HugetlbPages:	       0 kB
+CoreDumping:	0
+THP_enabled:	1
+Threads:	14
+SigQ:	1/127458
+SigPnd:	0000000000000000
+ShdPnd:	0000000000000000
+SigBlk:	fffffffc3bfa3a00
+SigIgn:	0000000000000000
+SigCgt:	fffffffdffc1feff
+CapInh:	00000000a80425fb
+CapPrm:	00000000a80425fb
+CapEff:	00000000a80425fb
+CapBnd:	00000000a80425fb
+CapAmb:	0000000000000000
+NoNewPrivs:	0
+Seccomp:	0
+Speculation_Store_Bypass:	thread vulnerable
+Cpus_allowed:	ff
+Cpus_allowed_list:	0-7
+Mems_allowed:	00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000001
+Mems_allowed_list:	0
+voluntary_ctxt_switches:	82
+nonvoluntary_ctxt_switches:	21
+/ # cat /proc/1/stat
+stat    statm   status
+/ # cat /proc/1/statm
+520122 27057 2780 1751 0 158052 0
+/ # cat /proc/1/status
+Name:	victoria-metric
+Umask:	0022
+State:	S (sleeping)
+Tgid:	1
+Ngid:	0
+Pid:	1
+PPid:	0
+TracerPid:	0
+Uid:	0	0	0	0
+Gid:	0	0	0	0
+FDSize:	256
+Groups:	1 2 3 4 6 10 11 20 26 27
+NStgid:	1
+NSpid:	1
+NSpgid:	1
+NSsid:	1
+VmPeak:	 2080556 kB
+VmSize:	 2080520 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	  195976 kB
+VmRSS:	  129848 kB
+RssAnon:	  118752 kB
+RssFile:	   11096 kB
+RssShmem:	       0 kB
+VmData:	  633020 kB
+VmStk:	     132 kB
+VmExe:	    7004 kB
+VmLib:	       8 kB
+VmPTE:	     984 kB
+VmSwap:	       0 kB
+HugetlbPages:	       0 kB
+CoreDumping:	0
+THP_enabled:	1
+Threads:	14
+SigQ:	1/127458
+SigPnd:	0000000000000000
+ShdPnd:	0000000000000000
+SigBlk:	fffffffc3bfa3a00
+SigIgn:	0000000000000000
+SigCgt:	fffffffdffc1feff
+CapInh:	00000000a80425fb
+CapPrm:	00000000a80425fb
+CapEff:	00000000a80425fb
+CapBnd:	00000000a80425fb
+CapAmb:	0000000000000000
+NoNewPrivs:	0
+Seccomp:	0
+Speculation_Store_Bypass:	thread vulnerable
+Cpus_allowed:	ff
+Cpus_allowed_list:	0-7
+Mems_allowed:	00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000001
+Mems_allowed_list:	0
+voluntary_ctxt_switches:	82
+nonvoluntary_ctxt_switches:	21
