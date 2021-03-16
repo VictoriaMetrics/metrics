@@ -75,6 +75,7 @@ func (h *Histogram) resetLocked() {
 	}
 	h.lower = 0
 	h.upper = 0
+	h.sum = 0
 }
 
 // Update updates h with v.
