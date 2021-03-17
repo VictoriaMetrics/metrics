@@ -236,17 +236,18 @@ func getMemStats(path string) (*memStats, error) {
 		// Extract key value.
 		line := strings.Fields(s)
 		if len(line) != 3 {
-			return nil, fmt.Errorf("cannot extract soft limit from %q", s)
+			return nil, fmt.Errorf("unexpected number of fields found in %q; got %d; want %d", s, len(line), 3)
 		}
 		memStatName := line[0]
 		memStatValue := line[1]
 		value, err := strconv.ParseUint(memStatValue, 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("cannot parse soft limit from %q: %s", s, err)
+			return nil, fmt.Errorf("cannot parse number from %q: %w", s, err)
 		}
-		if line[2] == "kB" {
-			value = value * 1024
+		if line[2] != "kB" {
+			return nil, fmt.Errorf("expecting kB value in %q; got %q", s, line[2])
 		}
+		value *= 1024
 		switch memStatName {
 		case "VmPeak:":
 			ms.vmPeak = value
