@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+func TestBuildName(t *testing.T) {
+	expectNoPanic(t, `my_metric{firstlabel="value2",zerolabel="value3"}`, func() { BuildName("my_metric", "zerolabel", "value3", "firstlabel", "value2") })
+}
+
 func TestInvalidName(t *testing.T) {
 	f := func(name string) {
 		t.Helper()
@@ -109,6 +113,17 @@ func expectPanic(t *testing.T, context string, f func()) {
 		t.Helper()
 		if r := recover(); r == nil {
 			t.Fatalf("expecting panic in %s", context)
+		}
+	}()
+	f()
+}
+
+func expectNoPanic(t *testing.T, context string, f func()) {
+	t.Helper()
+	defer func() {
+		t.Helper()
+		if r := recover(); r != nil {
+			t.Fatalf("not expecting panic in %s", context)
 		}
 	}()
 	f()

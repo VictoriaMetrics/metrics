@@ -13,7 +13,10 @@
 package metrics
 
 import (
+	"fmt"
 	"io"
+	"sort"
+	"strings"
 )
 
 type namedMetric struct {
@@ -109,4 +112,38 @@ func WriteFDMetrics(w io.Writer) {
 // UnregisterMetric removes metric with the given name from default set.
 func UnregisterMetric(name string) bool {
 	return defaultSet.UnregisterMetric(name)
+}
+
+type byKey []string
+
+func (k byKey) Len() int           { return len(k) / 2 }
+func (k byKey) Less(i, j int) bool { return k[i*2] < k[j*2] }
+func (k byKey) Swap(i, j int) {
+	k[i*2], k[j*2] = k[j*2], k[i*2]
+	k[i*2+1], k[j*2+1] = k[j*2+1], k[i*2+1]
+}
+
+func BuildName(name string, labels ...string) string {
+	var b strings.Builder
+
+	if len(labels)%2 != 0 {
+		panic(fmt.Errorf("BUG: invalid labels count: %q", labels))
+	}
+
+	sort.Sort(byKey(labels))
+
+	_, _ = b.WriteString(name)
+	_, _ = b.WriteRune('{')
+	for idx := 0; idx < len(labels); idx += 2 {
+		if idx > 0 {
+			_, _ = b.WriteRune(',')
+		}
+		_, _ = b.WriteString(labels[idx])
+		_, _ = b.WriteString(`="`)
+		_, _ = b.WriteString(labels[idx+1])
+		_, _ = b.WriteString(`"`)
+	}
+	_, _ = b.WriteRune('}')
+
+	return b.String()
 }
