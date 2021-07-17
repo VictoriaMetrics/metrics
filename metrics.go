@@ -124,6 +124,7 @@ func (k byKey) Swap(i, j int) {
 	k[i*2+1], k[j*2+1] = k[j*2+1], k[i*2+1]
 }
 
+// BuildName used to combine metric with labels
 func BuildName(name string, labels ...string) string {
 	if len(labels)%2 == 1 {
 		panic(fmt.Errorf("BUG: odd number of label/value pairs: %q", labels))
