@@ -8,7 +8,13 @@ import (
 )
 
 func TestBuildName(t *testing.T) {
-	expectNoPanic(t, `my_metric{firstlabel="value2",zerolabel="value3"}`, func() { BuildName("my_metric", "zerolabel", "value3", "firstlabel", "value2") })
+	expectNoPanic(t, `my_metric{firstlabel="value2",zerolabel="value3"}`, func() {
+		BuildName("my_metric", "zerolabel", "value3", "firstlabel", "value2")
+	})
+	expectPanic(t, `my_metric{,firstlabel="value2",zerolabel="value3"}`, func() {
+		BuildName("my_metric", "zerolabel", "value3", ",firstlabel", "value2")
+	})
+
 }
 
 func TestInvalidName(t *testing.T) {

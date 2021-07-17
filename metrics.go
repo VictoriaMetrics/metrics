@@ -114,6 +114,7 @@ func UnregisterMetric(name string) bool {
 	return defaultSet.UnregisterMetric(name)
 }
 
+// sort labels alphabeticaly by label name
 type byKey []string
 
 func (k byKey) Len() int           { return len(k) / 2 }
@@ -124,14 +125,13 @@ func (k byKey) Swap(i, j int) {
 }
 
 func BuildName(name string, labels ...string) string {
-	var b strings.Builder
-
-	if len(labels)%2 != 0 {
-		panic(fmt.Errorf("BUG: invalid labels count: %q", labels))
+	if len(labels)%2 == 1 {
+		panic(fmt.Errorf("BUG: odd number of label/value pairs: %q", labels))
 	}
 
 	sort.Sort(byKey(labels))
 
+	var b strings.Builder
 	_, _ = b.WriteString(name)
 	_, _ = b.WriteRune('{')
 	for idx := 0; idx < len(labels); idx += 2 {
@@ -144,6 +144,10 @@ func BuildName(name string, labels ...string) string {
 		_, _ = b.WriteString(`"`)
 	}
 	_, _ = b.WriteRune('}')
+
+	if err := validateMetric(b.String()); err != nil {
+		panic(fmt.Errorf("BUG: invalid metric name %q: %s", name, err))
+	}
 
 	return b.String()
 }
