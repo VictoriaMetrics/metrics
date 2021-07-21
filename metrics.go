@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -140,9 +141,8 @@ func BuildName(name string, labels ...string) string {
 			_, _ = b.WriteRune(',')
 		}
 		_, _ = b.WriteString(labels[idx])
-		_, _ = b.WriteString(`="`)
-		_, _ = b.WriteString(labels[idx+1])
-		_, _ = b.WriteString(`"`)
+		_, _ = b.WriteString(`=`)
+		_, _ = b.WriteString(strconv.Quote(labels[idx+1]))
 	}
 	_, _ = b.WriteRune('}')
 
