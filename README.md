@@ -86,8 +86,8 @@ Because the `github.com/prometheus/client_golang` is too complex and is hard to 
 #### Why the `metrics.WritePrometheus` doesn't expose documentation for each metric?
 
 Because this documentation is ignored by Prometheus. The documentation is for users.
-Just give meaningful names to the exported metrics or add comments in the source code
-or in other suitable place explaining each metric exposed from your application.
+Just give [meaningful names to the exported metrics](https://prometheus.io/docs/practices/naming/#metric-names)
+or add comments in the source code or in other suitable place explaining each metric exposed from your application.
 
 
 #### How to implement [CounterVec](https://godoc.org/github.com/prometheus/client_golang/prometheus#CounterVec) in `metrics`?
