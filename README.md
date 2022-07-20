@@ -16,6 +16,9 @@
 * Allows exporting distinct metric sets via distinct endpoints. See [Set](http://godoc.org/github.com/VictoriaMetrics/metrics#Set).
 * Supports [easy-to-use histograms](http://godoc.org/github.com/VictoriaMetrics/metrics#Histogram), which just work without any tuning.
   Read more about VictoriaMetrics histograms at [this article](https://medium.com/@valyala/improving-histogram-usability-for-prometheus-and-grafana-bc7e5df0e350).
+* Can push metrics to VictoriaMetrics or to any other remote storage, which accepts metrics
+  in [Prometheus text exposition format](https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-based-format).
+  See [these docs](http://godoc.org/github.com/VictoriaMetrics/metrics#InitPush).
 
 
 ### Limitations
@@ -64,6 +67,10 @@ func requestHandler() {
 http.HandleFunc("/metrics", func(w http.ResponseWriter, req *http.Request) {
 	metrics.WritePrometheus(w, true)
 })
+
+// ... or push registered metrics every 10 seconds to http://victoria-metrics:8428/api/v1/import/prometheus
+// with the added `instance="foobar"` label to all the pushed metrics.
+metrics.InitPush("http://victoria-metrics:8428/api/v1/import/prometheus", 10*time.Second, `instance="foobar"`, true)
 ```
 
 See [docs](http://godoc.org/github.com/VictoriaMetrics/metrics) for more info.
