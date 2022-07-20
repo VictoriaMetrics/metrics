@@ -28,8 +28,8 @@
 ```go
 import "github.com/VictoriaMetrics/metrics"
 
-// Register various time series.
-// Time series name may contain labels in Prometheus format - see below.
+// Register various metrics.
+// Metric name may contain labels in Prometheus format - see below.
 var (
 	// Register counter without labels.
 	requestsTotal = metrics.NewCounter("requests_total")
