@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"time"
@@ -108,14 +109,16 @@ func InitPushExt(pushURL string, interval time.Duration, extraLabels string, wri
 			}
 			resp, err := c.Post(pushURL, "text/plain", &bb)
 			if err != nil {
-				log.Printf("cannot push metrics to %q: %s", pushURL, err)
+				log.Printf("ERROR: metrics.push: cannot push metrics to %q: %s", pushURL, err)
+				continue
+			}
+			if resp.StatusCode/100 != 2 {
+				body, _ := ioutil.ReadAll(resp.Body)
+				_ = resp.Body.Close()
+				log.Printf("ERROR: metrics.push: unexpected status code in response from %q: %d; expecting 2xx; response body: %q", pushURL, resp.StatusCode, body)
 				continue
 			}
 			_ = resp.Body.Close()
-			if resp.StatusCode/100 != 2 {
-				log.Printf("unexpected status code in response from %q: %d; expecting 2xx", pushURL, resp.StatusCode)
-				continue
-			}
 		}
 	}()
 }
