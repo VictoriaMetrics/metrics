@@ -81,6 +81,9 @@ func initPush(pushURL string, interval time.Duration, extraLabels string, writeM
 	if err := validateTags(extraLabels); err != nil {
 		panic(fmt.Errorf("BUG: invalid extraLabels=%q: %s", extraLabels, err))
 	}
+	c := &http.Client{
+		Timeout: interval,
+	}
 	go func() {
 		ticker := time.NewTicker(interval)
 		var bb bytes.Buffer
@@ -93,7 +96,7 @@ func initPush(pushURL string, interval time.Duration, extraLabels string, writeM
 				bb.Reset()
 				bb.Write(tmpBuf)
 			}
-			resp, err := http.Post(pushURL, "text/plain", &bb)
+			resp, err := c.Post(pushURL, "text/plain", &bb)
 			if err != nil {
 				log.Printf("cannot push metrics to %q: %s", pushURL, err)
 				continue
