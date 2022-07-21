@@ -26,7 +26,7 @@ func InitPushProcessMetrics(pushURL string, interval time.Duration, extraLabels 
 	writeMetrics := func(w io.Writer) {
 		WriteProcessMetrics(w)
 	}
-	initPush(pushURL, interval, extraLabels, writeMetrics)
+	InitPushExt(pushURL, interval, extraLabels, writeMetrics)
 }
 
 // InitPush sets up periodic push for globally registered metrics to the given pushURL with the given interval.
@@ -46,12 +46,9 @@ func InitPushProcessMetrics(pushURL string, interval time.Duration, extraLabels 
 // in this case metrics are pushed to all the provided pushURL urls.
 func InitPush(pushURL string, interval time.Duration, extraLabels string, pushProcessMetrics bool) {
 	writeMetrics := func(w io.Writer) {
-		defaultSet.WritePrometheus(w)
-		if pushProcessMetrics {
-			WriteProcessMetrics(w)
-		}
+		WritePrometheus(w, pushProcessMetrics)
 	}
-	initPush(pushURL, interval, extraLabels, writeMetrics)
+	InitPushExt(pushURL, interval, extraLabels, writeMetrics)
 }
 
 // InitPush sets up periodic push for metrics from s to the given pushURL with the given interval.
@@ -71,10 +68,23 @@ func (s *Set) InitPush(pushURL string, interval time.Duration, extraLabels strin
 	writeMetrics := func(w io.Writer) {
 		s.WritePrometheus(w)
 	}
-	initPush(pushURL, interval, extraLabels, writeMetrics)
+	InitPushExt(pushURL, interval, extraLabels, writeMetrics)
 }
 
-func initPush(pushURL string, interval time.Duration, extraLabels string, writeMetrics func(w io.Writer)) {
+// InitPushExt sets up periodic push for metrics obtained by calling writeMetrics with the given interval.
+//
+// extraLabels may contain comma-separated list of `label="value"` labels, which will be added
+// to all the metrics before pushing them to pushURL.
+//
+// The writeMetrics callback must write metrics to w in Prometheus text exposition format without timestamps and trailing comments.
+// See https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-based-format
+//
+// It is recommended pushing metrics to /api/v1/import/prometheus endpoint according to
+// https://docs.victoriametrics.com/#how-to-import-data-in-prometheus-exposition-format
+//
+// It is OK calling InitPushExt multiple times with different pushURL -
+// in this case metrics are pushed to all the provided pushURL urls.
+func InitPushExt(pushURL string, interval time.Duration, extraLabels string, writeMetrics func(w io.Writer)) {
 	if interval <= 0 {
 		panic(fmt.Errorf("BUG: interval must be positive; got %s", interval))
 	}
@@ -121,6 +131,17 @@ func addExtraLabels(dst, src []byte, extraLabels string) []byte {
 			line = src
 			src = nil
 		}
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 {
+			// Skip empy lines
+			continue
+		}
+		if bytes.HasPrefix(line, bashBytes) {
+			// Copy comments as is
+			dst = append(dst, line...)
+			dst = append(dst, '\n')
+			continue
+		}
 		n = bytes.IndexByte(line, '{')
 		if n >= 0 {
 			dst = append(dst, line[:n+1]...)
@@ -130,7 +151,7 @@ func addExtraLabels(dst, src []byte, extraLabels string) []byte {
 		} else {
 			n = bytes.LastIndexByte(line, ' ')
 			if n < 0 {
-				panic(fmt.Errorf("BUG: missing whitespace in the generated Prometheus text exposition line %q", line))
+				panic(fmt.Errorf("BUG: missing whitespace between metric name and metric value in Prometheus text exposition line %q", line))
 			}
 			dst = append(dst, line[:n]...)
 			dst = append(dst, '{')
@@ -142,3 +163,5 @@ func addExtraLabels(dst, src []byte, extraLabels string) []byte {
 	}
 	return dst
 }
+
+var bashBytes = []byte("#")

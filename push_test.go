@@ -22,6 +22,15 @@ bar{a="x"} 2
 `, `foo="bar"`, `foo{foo="bar"} 1
 bar{foo="bar",a="x"} 2
 `)
+	f(`
+foo 1
+# some counter
+# type foobar counter
+foobar{a="b",c="d"} 4`, `x="y"`, `foo{x="y"} 1
+# some counter
+# type foobar counter
+foobar{x="y",a="b",c="d"} 4
+`)
 }
 
 func TestInitPushFailure(t *testing.T) {
