@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -23,11 +24,11 @@ import (
 //
 // It is OK calling InitPushProcessMetrics multiple times with different pushURL -
 // in this case metrics are pushed to all the provided pushURL urls.
-func InitPushProcessMetrics(pushURL string, interval time.Duration, extraLabels string) {
+func InitPushProcessMetrics(pushURL string, interval time.Duration, extraLabels string) error {
 	writeMetrics := func(w io.Writer) {
 		WriteProcessMetrics(w)
 	}
-	InitPushExt(pushURL, interval, extraLabels, writeMetrics)
+	return InitPushExt(pushURL, interval, extraLabels, writeMetrics)
 }
 
 // InitPush sets up periodic push for globally registered metrics to the given pushURL with the given interval.
@@ -45,11 +46,11 @@ func InitPushProcessMetrics(pushURL string, interval time.Duration, extraLabels 
 //
 // It is OK calling InitPush multiple times with different pushURL -
 // in this case metrics are pushed to all the provided pushURL urls.
-func InitPush(pushURL string, interval time.Duration, extraLabels string, pushProcessMetrics bool) {
+func InitPush(pushURL string, interval time.Duration, extraLabels string, pushProcessMetrics bool) error {
 	writeMetrics := func(w io.Writer) {
 		WritePrometheus(w, pushProcessMetrics)
 	}
-	InitPushExt(pushURL, interval, extraLabels, writeMetrics)
+	return InitPushExt(pushURL, interval, extraLabels, writeMetrics)
 }
 
 // InitPush sets up periodic push for metrics from s to the given pushURL with the given interval.
@@ -65,11 +66,11 @@ func InitPush(pushURL string, interval time.Duration, extraLabels string, pushPr
 //
 // It is OK calling InitPush multiple times with different pushURL -
 // in this case metrics are pushed to all the provided pushURL urls.
-func (s *Set) InitPush(pushURL string, interval time.Duration, extraLabels string) {
+func (s *Set) InitPush(pushURL string, interval time.Duration, extraLabels string) error {
 	writeMetrics := func(w io.Writer) {
 		s.WritePrometheus(w)
 	}
-	InitPushExt(pushURL, interval, extraLabels, writeMetrics)
+	return InitPushExt(pushURL, interval, extraLabels, writeMetrics)
 }
 
 // InitPushExt sets up periodic push for metrics obtained by calling writeMetrics with the given interval.
@@ -85,13 +86,24 @@ func (s *Set) InitPush(pushURL string, interval time.Duration, extraLabels strin
 //
 // It is OK calling InitPushExt multiple times with different pushURL -
 // in this case metrics are pushed to all the provided pushURL urls.
-func InitPushExt(pushURL string, interval time.Duration, extraLabels string, writeMetrics func(w io.Writer)) {
+func InitPushExt(pushURL string, interval time.Duration, extraLabels string, writeMetrics func(w io.Writer)) error {
 	if interval <= 0 {
-		panic(fmt.Errorf("BUG: interval must be positive; got %s", interval))
+		return fmt.Errorf("interval must be positive; got %s", interval)
 	}
 	if err := validateTags(extraLabels); err != nil {
-		panic(fmt.Errorf("BUG: invalid extraLabels=%q: %s", extraLabels, err))
+		return fmt.Errorf("invalid extraLabels=%q: %w", extraLabels, err)
 	}
+	pu, err := url.Parse(pushURL)
+	if err != nil {
+		return fmt.Errorf("cannot parse pushURL=%q: %w", pushURL, err)
+	}
+	if pu.Scheme != "http" && pu.Scheme != "https" {
+		return fmt.Errorf("unsupported scheme in pushURL=%q; expecting 'http' or 'https'", pushURL)
+	}
+	if pu.Host == "" {
+		return fmt.Errorf("missing host in pushURL=%q", pushURL)
+	}
+	pushURLRedacted := pu.Redacted()
 	c := &http.Client{
 		Timeout: interval,
 	}
@@ -109,18 +121,20 @@ func InitPushExt(pushURL string, interval time.Duration, extraLabels string, wri
 			}
 			resp, err := c.Post(pushURL, "text/plain", &bb)
 			if err != nil {
-				log.Printf("ERROR: metrics.push: cannot push metrics to %q: %s", pushURL, err)
+				log.Printf("ERROR: metrics.push: cannot push metrics to %q: %s", pushURLRedacted, err)
 				continue
 			}
 			if resp.StatusCode/100 != 2 {
 				body, _ := ioutil.ReadAll(resp.Body)
 				_ = resp.Body.Close()
-				log.Printf("ERROR: metrics.push: unexpected status code in response from %q: %d; expecting 2xx; response body: %q", pushURL, resp.StatusCode, body)
+				log.Printf("ERROR: metrics.push: unexpected status code in response from %q: %d; expecting 2xx; response body: %q",
+					pushURLRedacted, resp.StatusCode, body)
 				continue
 			}
 			_ = resp.Body.Close()
 		}
 	}()
+	return nil
 }
 
 func addExtraLabels(dst, src []byte, extraLabels string) []byte {

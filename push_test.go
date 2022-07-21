@@ -34,25 +34,28 @@ foobar{x="y",a="b",c="d"} 4
 }
 
 func TestInitPushFailure(t *testing.T) {
-	f := func(interval time.Duration, extraLabels string) {
+	f := func(pushURL string, interval time.Duration, extraLabels string) {
 		t.Helper()
-		defer func() {
-			if err := recover(); err == nil {
-				panic("expecting non-nil error")
-			}
-		}()
-		InitPush("http://foobar", interval, extraLabels, false)
+		if err := InitPush(pushURL, interval, extraLabels, false); err == nil {
+			t.Fatalf("expecting non-nil error")
+		}
 	}
 
+	// Invalid url
+	f("foobar", time.Second, "")
+	f("aaa://foobar", time.Second, "")
+	f("http:///bar", time.Second, "")
+
 	// Non-positive interval
-	f(0, "")
+	f("http://foobar", 0, "")
+	f("http://foobar", -time.Second, "")
 
 	// Invalid extraLabels
-	f(time.Second, "foo")
-	f(time.Second, "foo{bar")
-	f(time.Second, "foo=bar")
-	f(time.Second, "foo='bar'")
-	f(time.Second, `foo="bar",baz`)
-	f(time.Second, `{foo="bar"}`)
-	f(time.Second, `a{foo="bar"}`)
+	f("http://foobar", time.Second, "foo")
+	f("http://foobar", time.Second, "foo{bar")
+	f("http://foobar", time.Second, "foo=bar")
+	f("http://foobar", time.Second, "foo='bar'")
+	f("http://foobar", time.Second, `foo="bar",baz`)
+	f("http://foobar", time.Second, `{foo="bar"}`)
+	f("http://foobar", time.Second, `a{foo="bar"}`)
 }
