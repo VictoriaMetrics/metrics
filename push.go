@@ -133,6 +133,9 @@ func InitPushExt(pushURL string, interval time.Duration, extraLabels string, wri
 			if _, err := zw.Write(tmpBuf); err != nil {
 				panic(fmt.Errorf("BUG: cannot write %d bytes to gzip writer: %s", len(tmpBuf), err))
 			}
+			if err := zw.Close(); err != nil {
+				panic(fmt.Errorf("BUG: cannot flush metrics to gzip writer: %s", err))
+			}
 			req, err := http.NewRequest("GET", pushURL, &bb)
 			if err != nil {
 				log.Printf("ERROR: metrics.push: cannot initialize request for metrics push to %q: %s", pushURLRedacted, err)
