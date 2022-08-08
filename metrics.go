@@ -14,6 +14,9 @@ package metrics
 
 import (
 	"io"
+	"sort"
+	"sync"
+	"unsafe"
 )
 
 type namedMetric struct {
@@ -27,7 +30,34 @@ type metric interface {
 
 var defaultSet = NewSet()
 
-// WritePrometheus writes all the registered metrics in Prometheus format to w.
+func init() {
+	RegisterSet(defaultSet)
+}
+
+var (
+	registeredSets = make(map[*Set]struct{})
+	registeredSetsLock sync.Mutex
+)
+
+// RegisterSet registers the given set s for metrics export via global WritePrometheus() call.
+//
+// See also UnregisterSet.
+func RegisterSet(s *Set) {
+	registeredSetsLock.Lock()
+	registeredSets[s] = struct{}{}
+	registeredSetsLock.Unlock()
+}
+
+// UnregisterSet stops exporting metrics for the given s via global WritePrometheus() call.
+func UnregisterSet(s *Set) {
+	registeredSetsLock.Lock()
+	delete(registeredSets, s)
+	registeredSetsLock.Unlock()
+}
+
+// WritePrometheus writes all the metrics from default set and all the registered sets in Prometheus format to w.
+//
+// Additional sets can be registered via RegisterSet() call.
 //
 // If exposeProcessMetrics is true, then various `go_*` and `process_*` metrics
 // are exposed for the current process.
@@ -39,7 +69,19 @@ var defaultSet = NewSet()
 //     })
 //
 func WritePrometheus(w io.Writer, exposeProcessMetrics bool) {
-	defaultSet.WritePrometheus(w)
+	registeredSetsLock.Lock()
+	sets := make([]*Set, 0, len(registeredSets))
+	for s := range registeredSets {
+		sets = append(sets, s)
+	}
+	registeredSetsLock.Unlock()
+
+	sort.Slice(sets, func(i, j int) bool {
+		return uintptr(unsafe.Pointer(sets[i])) < uintptr(unsafe.Pointer(sets[j]))
+	})
+	for _, s := range sets {
+		s.WritePrometheus(w)
+	}
 	if exposeProcessMetrics {
 		WriteProcessMetrics(w)
 	}

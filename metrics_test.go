@@ -3,9 +3,35 @@ package metrics
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestRegisterUnregisterSet(t *testing.T) {
+	const metricName = "metric_from_set"
+	const metricValue = 123
+	s := NewSet()
+	c := s.NewCounter(metricName)
+	c.Set(metricValue)
+
+	RegisterSet(s)
+	var bb bytes.Buffer
+	WritePrometheus(&bb, false)
+	data := bb.String()
+	expectedLine := fmt.Sprintf("%s %d\n", metricName, metricValue)
+	if !strings.Contains(data, expectedLine) {
+		t.Fatalf("missing %q in\n%s", expectedLine, data)
+	}
+
+	UnregisterSet(s)
+	bb.Reset()
+	WritePrometheus(&bb, false)
+	data = bb.String()
+	if strings.Contains(data, expectedLine) {
+		t.Fatalf("unepected %q in\n%s", expectedLine, data)
+	}
+}
 
 func TestInvalidName(t *testing.T) {
 	f := func(name string) {

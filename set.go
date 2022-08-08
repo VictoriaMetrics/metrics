@@ -22,6 +22,8 @@ type Set struct {
 }
 
 // NewSet creates new set of metrics.
+//
+// Pass the set to RegisterSet() function in order to export its metrics via global WritePrometheus() call.
 func NewSet() *Set {
 	return &Set{
 		m: make(map[string]*namedMetric),
