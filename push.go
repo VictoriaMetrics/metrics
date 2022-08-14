@@ -174,6 +174,68 @@ func InitPushExt(pushURL string, interval time.Duration, extraLabels string, wri
 	return nil
 }
 
+func PushMetric(pushURL string, extraLabels string, timeout time.Duration) error {
+	if err := validateTags(extraLabels); err != nil {
+		return fmt.Errorf("invalid extraLabels=%q: %w", extraLabels, err)
+	}
+
+	writeMetrics := func(w io.Writer) {
+		WriteProcessMetrics(w)
+	}
+	pu, err := url.Parse(pushURL)
+	if err != nil {
+		return fmt.Errorf("cannot parse pushURL=%q: %w", pushURL, err)
+	}
+	if pu.Scheme != "http" && pu.Scheme != "https" {
+		return fmt.Errorf("unsupported scheme in pushURL=%q; expecting 'http' or 'https'", pushURL)
+	}
+	if pu.Host == "" {
+		return fmt.Errorf("missing host in pushURL=%q", pushURL)
+	}
+	var bb bytes.Buffer
+	var tmpBuf []byte
+	zw := gzip.NewWriter(&bb)
+	writeMetrics(&bb)
+
+	if len(extraLabels) > 0 {
+		tmpBuf = addExtraLabels(tmpBuf[:0], bb.Bytes(), extraLabels)
+		bb.Reset()
+		if _, err := bb.Write(tmpBuf); err != nil {
+			panic(fmt.Errorf("BUG: cannot write %d bytes to bytes.Buffer: %s", len(tmpBuf), err))
+		}
+	}
+	tmpBuf = append(tmpBuf[:0], bb.Bytes()...)
+	bb.Reset()
+	zw.Reset(&bb)
+	if _, err := zw.Write(tmpBuf); err != nil {
+		panic(fmt.Errorf("BUG: cannot write %d bytes to gzip writer: %s", len(tmpBuf), err))
+	}
+	if err := zw.Close(); err != nil {
+		panic(fmt.Errorf("BUG: cannot flush metrics to gzip writer: %s", err))
+	}
+	req, err := http.NewRequest("GET", pushURL, &bb)
+	if err != nil {
+		panic(fmt.Errorf("BUG: metrics.push: cannot initialize request for metrics push to %q: %w", pushURL, err))
+	}
+	req.Header.Set("Content-Type", "text/plain")
+	req.Header.Set("Content-Encoding", "gzip")
+	c := &http.Client{
+		Timeout: timeout,
+	}
+	resp, err := c.Do(req)
+	if err != nil {
+		log.Printf("ERROR: metrics.push: cannot push metrics to %q: %s", pushURL, err)
+	}
+	if resp.StatusCode/100 != 2 {
+		body, _ := ioutil.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		log.Printf("ERROR: metrics.push: unexpected status code in response from %q: %d; expecting 2xx; response body: %q",
+			pushURL, resp.StatusCode, body)
+	}
+	_ = resp.Body.Close()
+	return nil
+}
+
 var pushMetrics = NewSet()
 
 func writePushMetrics(w io.Writer) {
