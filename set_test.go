@@ -64,6 +64,27 @@ func TestSetListMetricNames(t *testing.T) {
 	}
 }
 
+func TestSetUnregisterAllMetrics(t *testing.T) {
+	s := NewSet()
+	for j := 0; j < 3; j++ {
+		expectedMetricsCount := 0
+		for i := 0; i < 10; i++ {
+			_ = s.NewCounter(fmt.Sprintf("counter_%d", i))
+			_ = s.NewSummary(fmt.Sprintf("summary_%d", i))
+			_ = s.NewHistogram(fmt.Sprintf("histogram_%d", i))
+			_ = s.NewGauge(fmt.Sprintf("gauge_%d", i), func() float64 { return 0 })
+			expectedMetricsCount += 4
+		}
+		if mns := s.ListMetricNames(); len(mns) != expectedMetricsCount {
+			t.Fatalf("unexpected number of metric names on iteration %d; got %d; want %d;\nmetric names:\n%q", j, len(mns), expectedMetricsCount, mns)
+		}
+		s.UnregisterAllMetrics()
+		if mns := s.ListMetricNames(); len(mns) != 0 {
+			t.Fatalf("unexpected metric names after UnregisterAllMetrics call on iteration %d: %q", j, mns)
+		}
+	}
+}
+
 func TestSetUnregisterMetric(t *testing.T) {
 	s := NewSet()
 	const cName, smName = "counter_1", "summary_1"

@@ -8,6 +8,31 @@ import (
 	"time"
 )
 
+func TestGetDefaultSet(t *testing.T) {
+	s := GetDefaultSet()
+	if s != defaultSet {
+		t.Fatalf("GetDefaultSet must return defaultSet=%p, but returned %p", defaultSet, s)
+	}
+}
+
+func TestUnregisterAllMetrics(t *testing.T) {
+	for j := 0; j < 3; j++ {
+		for i := 0; i < 10; i++ {
+			_ = NewCounter(fmt.Sprintf("counter_%d", i))
+			_ = NewSummary(fmt.Sprintf("summary_%d", i))
+			_ = NewHistogram(fmt.Sprintf("histogram_%d", i))
+			_ = NewGauge(fmt.Sprintf("gauge_%d", i), func() float64 { return 0 })
+		}
+		if mns := ListMetricNames(); len(mns) == 0 {
+			t.Fatalf("unexpected empty list of metrics on iteration %d", j)
+		}
+		UnregisterAllMetrics()
+		if mns := ListMetricNames(); len(mns) != 0 {
+			t.Fatalf("unexpected metric names after UnregisterAllMetrics call on iteration %d: %q", j, mns)
+		}
+	}
+}
+
 func TestRegisterUnregisterSet(t *testing.T) {
 	const metricName = "metric_from_set"
 	const metricValue = 123
