@@ -71,6 +71,10 @@ http.HandleFunc("/metrics", func(w http.ResponseWriter, req *http.Request) {
 // ... or push registered metrics every 10 seconds to http://victoria-metrics:8428/api/v1/import/prometheus
 // with the added `instance="foobar"` label to all the pushed metrics.
 metrics.InitPush("http://victoria-metrics:8428/api/v1/import/prometheus", 10*time.Second, `instance="foobar"`, true)
+
+// ... and close the metric sets and flush all metrics to a set pushUrls one last time before a job/set is removed 
+// from memory
+metrics.Close()
 ```
 
 See [docs](http://godoc.org/github.com/VictoriaMetrics/metrics) for more info.

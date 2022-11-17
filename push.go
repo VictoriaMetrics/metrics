@@ -77,6 +77,11 @@ func (s *Set) InitPush(pushURL string, interval time.Duration, extraLabels strin
 	return InitPushExt(pushURL, interval, extraLabels, writeMetrics)
 }
 
+// Close send a last metric push to the a metrics.Sets{}'s pushURL and stops the pushing of metrics for that set.
+//
+// Is it recommended to call metrics.Set{}.Close() before a Set{} is removed from memory so all metrics are flushed one last time.
+//
+// Close() will always return a nil err
 func (s *Set) Close() error {
 	v, ok := pushUrlChanMap.LoadAndDelete(s.pushUrl)
 	if !ok {
@@ -87,6 +92,10 @@ func (s *Set) Close() error {
 	closeWG.Wait()
 	return nil
 }
+
+// pushUrlChanMap is a set of channels that signal if metrics should be collected.
+var pushUrlChanMap = &sync.Map{}
+var closeWG = &sync.WaitGroup{}
 
 type chanMutex struct {
 	c      chan struct{}
@@ -111,10 +120,6 @@ func (c *chanMutex) send() bool {
 	return true
 }
 
-// pushUrlChanMap is a set of channels that signal if metrics should be collected.
-var pushUrlChanMap = &sync.Map{}
-var closeWG = &sync.WaitGroup{}
-
 func timeTrigger(interval time.Duration, c *chanMutex) {
 	go func() {
 		ticker := time.NewTicker(interval)
@@ -126,6 +131,12 @@ func timeTrigger(interval time.Duration, c *chanMutex) {
 	}()
 }
 
+// Close flushes all metrics for both global and non-global metrics.Set{} to their respective pushURL's and stops
+// all timers.
+//
+// Is it recommended to call Close() before a job is removed from memory so all metrics are flushed one last time to pushURL's
+//
+// Close() will always return a nil err
 func Close() error {
 	pushUrlChanMap.Range(func(k, v interface{}) bool {
 		closeWG.Add(1)
