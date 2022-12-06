@@ -55,6 +55,23 @@ func InitPush(pushURL string, interval time.Duration, extraLabels string, pushPr
 	return InitPushExt(pushURL, interval, extraLabels, writeMetrics)
 }
 
+const (
+	FlagOfPushProcessMetrics = 1 // bit 0: use push process metrics
+	FlagOfForbideGzip        = 2 // bit 1: not use gzip to post data
+)
+
+var globalFlags uint64
+
+// InitPushWithFlags like `InitPush`, but user can use bit flags to add flags
+func InitPushWithFlags(pushURL string, interval time.Duration, extraLabels string, flags uint64) error {
+	pushProcessMetrics := flags&FlagOfPushProcessMetrics != 0
+	writeMetrics := func(w io.Writer) {
+		WritePrometheus(w, pushProcessMetrics)
+	}
+	globalFlags = flags
+	return InitPushExt(pushURL, interval, extraLabels, writeMetrics)
+}
+
 // InitPush sets up periodic push for metrics from s to the given pushURL with the given interval.
 //
 // extraLabels may contain comma-separated list of `label="value"` labels, which will be added
@@ -129,31 +146,43 @@ func InitPushExt(pushURL string, interval time.Duration, extraLabels string, wri
 			if len(extraLabels) > 0 {
 				tmpBuf = addExtraLabels(tmpBuf[:0], bb.Bytes(), extraLabels)
 				bb.Reset()
-				if _, err := bb.Write(tmpBuf); err != nil {
+				if _, err = bb.Write(tmpBuf); err != nil {
 					panic(fmt.Errorf("BUG: cannot write %d bytes to bytes.Buffer: %s", len(tmpBuf), err))
 				}
 			}
 			tmpBuf = append(tmpBuf[:0], bb.Bytes()...)
-			bb.Reset()
-			zw.Reset(&bb)
-			if _, err := zw.Write(tmpBuf); err != nil {
-				panic(fmt.Errorf("BUG: cannot write %d bytes to gzip writer: %s", len(tmpBuf), err))
-			}
-			if err := zw.Close(); err != nil {
-				panic(fmt.Errorf("BUG: cannot flush metrics to gzip writer: %s", err))
-			}
 			pushesTotal.Inc()
-			blockLen := bb.Len()
-			bytesPushedTotal.Add(blockLen)
-			pushBlockSize.Update(float64(blockLen))
-			req, err := http.NewRequest("GET", pushURL, &bb)
+			var (
+				req      *http.Request
+				blockLen int
+				resp     *http.Response
+			)
+			if (globalFlags & FlagOfForbideGzip) == 0 {
+				bb.Reset()
+				zw.Reset(&bb)
+				if _, err = zw.Write(tmpBuf); err != nil {
+					panic(fmt.Errorf("BUG: cannot write %d bytes to gzip writer: %s", len(tmpBuf), err))
+				}
+				if err = zw.Close(); err != nil {
+					panic(fmt.Errorf("BUG: cannot flush metrics to gzip writer: %s", err))
+				}
+				blockLen = bb.Len()
+				req, err = http.NewRequest("GET", pushURL, &bb)
+			} else {
+				blockLen = len(tmpBuf)
+				req, err = http.NewRequest("GET", pushURL, bytes.NewReader(tmpBuf))
+			}
 			if err != nil {
 				panic(fmt.Errorf("BUG: metrics.push: cannot initialize request for metrics push to %q: %w", pushURLRedacted, err))
 			}
+			bytesPushedTotal.Add(blockLen)
+			pushBlockSize.Update(float64(blockLen))
 			req.Header.Set("Content-Type", "text/plain")
-			req.Header.Set("Content-Encoding", "gzip")
+			if (globalFlags & FlagOfForbideGzip) == 0 {
+				req.Header.Set("Content-Encoding", "gzip")
+			}
 			startTime := time.Now()
-			resp, err := c.Do(req)
+			resp, err = c.Do(req)
 			pushDuration.UpdateDuration(startTime)
 			if err != nil {
 				log.Printf("ERROR: metrics.push: cannot push metrics to %q: %s", pushURLRedacted, err)
