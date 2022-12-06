@@ -1,0 +1,1183 @@
+{
+  "__inputs": [
+    {
+      "name": "golang-runtime-test",
+      "label": "golang-runtime-test-ds",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "__elements": [],
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "8.4.7"
+    },
+    {
+      "type": "panel",
+      "id": "heatmap",
+      "name": "Heatmap",
+      "version": ""
+    },
+    {
+      "type": "datasource",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": "1.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "stat",
+      "name": "Stat",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "golang runtime metrics",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "iteration": 1670309807752,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 11,
+      "panels": [],
+      "title": "golang runtime",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${golang-runtime-test}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
+      "id": 8,
+      "interval": "1m",
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.7",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${golang-runtime-test}"
+          },
+          "exemplar": false,
+          "expr": "sum(go_cpu_count{namespace=~\"${namespace}\",env_name=~\"${env_name}\",app=~\"${app}\",server=~\"${server}\"})",
+          "instant": true,
+          "interval": "",
+          "legendFormat": "cpu count",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${golang-runtime-test}"
+          },
+          "exemplar": false,
+          "expr": "sum(go_gomaxprocs{namespace=~\"${namespace}\",env_name=~\"${env_name}\",app=~\"${app}\",server=~\"${server}\"})",
+          "hide": false,
+          "instant": true,
+          "interval": "",
+          "legendFormat": "go_gomaxprocs",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${golang-runtime-test}"
+          },
+          "exemplar": true,
+          "expr": "sum(go_goroutines{namespace=~\"${namespace}\",env_name=~\"${env_name}\",app=~\"${app}\",server=~\"${server}\"})",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "go_goroutines",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${golang-runtime-test}"
+          },
+          "exemplar": true,
+          "expr": "sum(go_threads{namespace=~\"${namespace}\",env_name=~\"${env_name}\",app=~\"${app}\",server=~\"${server}\"})",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "go_threads",
+          "refId": "D"
+        }
+      ],
+      "title": "go_cpu_count",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${golang-runtime-test}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 1
+      },
+      "id": 9,
+      "interval": "1m",
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.7",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${golang-runtime-test}"
+          },
+          "exemplar": false,
+          "expr": "sum by (version) (go_info{namespace=~\"${namespace}\",env_name=~\"${env_name}\",app=~\"${app}\",server=~\"${server}\"})",
+          "format": "time_series",
+          "instant": true,
+          "interval": "",
+          "legendFormat": "version: {{version}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${golang-runtime-test}"
+          },
+          "exemplar": false,
+          "expr": "go_info_ext{namespace=~\"${namespace}\",env_name=~\"${env_name}\",app=~\"${app}\",server=~\"${server}\"}",
+          "hide": false,
+          "instant": true,
+          "interval": "",
+          "legendFormat": "compiler: {{compiler}}",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${golang-runtime-test}"
+          },
+          "exemplar": false,
+          "expr": "go_info_ext{namespace=~\"${namespace}\",env_name=~\"${env_name}\",app=~\"${app}\",server=~\"${server}\"}",
+          "hide": false,
+          "instant": true,
+          "interval": "",
+          "legendFormat": "GOARCH: {{GOARCH}}",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${golang-runtime-test}"
+          },
+          "exemplar": false,
+          "expr": "go_info_ext{namespace=~\"${namespace}\",env_name=~\"${env_name}\",app=~\"${app}\",server=~\"${server}\"}",
+          "hide": false,
+          "instant": true,
+          "interval": "",
+          "legendFormat": "GOOS: {{GOOS}}",
+          "refId": "D"
+        }
+      ],
+      "title": "go_info",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${golang-runtime-test}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "id": 16,
+      "interval": "1m",
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.7",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${golang-runtime-test}"
+          },
+          "exemplar": false,
+          "expr": "max by () (metrics_push_interval_seconds{namespace=~\"${namespace}\",env_name=~\"${env_name}\",app=~\"${app}\",server=~\"${server}\"})",
+          "format": "time_series",
+          "instant": true,
+          "interval": "",
+          "legendFormat": "metrics_push_interval_seconds",
+          "refId": "A"
+        }
+      ],
+      "title": "metrics_push_interval_seconds",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${golang-runtime-test}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 0,
+        "y": 6
+      },
+      "id": 2,
+      "interval": "1m",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${golang-runtime-test}"
+          },
+          "exemplar": true,
+          "expr": "max by () (go_memstats_alloc_bytes{namespace=~\"${namespace}\",env_name=~\"${env_name}\",app=~\"${app}\",server=~\"${server}\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "go_memstats_alloc_bytes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${golang-runtime-test}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 6,
+        "y": 6
+      },
+      "id": 4,
+      "interval": "1m",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${golang-runtime-test}"
+          },
+          "exemplar": true,
+          "expr": "max by () (go_memstats_buck_hash_sys_bytes{namespace=~\"${namespace}\",env_name=~\"${env_name}\",app=~\"${app}\",server=~\"${server}\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "go_memstats_buck_hash_sys_bytes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${golang-runtime-test}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 12,
+        "y": 6
+      },
+      "id": 15,
+      "interval": "1m",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${golang-runtime-test}"
+          },
+          "exemplar": true,
+          "expr": "sum by () (increase(go_memstats_alloc_bytes_total{namespace=~\"${namespace}\",env_name=~\"${env_name}\",app=~\"${app}\",server=~\"${server}\"}[1m]))",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "go_memstats_alloc_bytes_total",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${golang-runtime-test}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 18,
+        "y": 6
+      },
+      "id": 5,
+      "interval": "1m",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${golang-runtime-test}"
+          },
+          "exemplar": true,
+          "expr": "sum by () (increase(go_memstats_frees_total{namespace=~\"${namespace}\",env_name=~\"${env_name}\",app=~\"${app}\",server=~\"${server}\"}[1m]))",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "go_memstats_frees_total",
+      "type": "timeseries"
+    },
+    {
+      "cards": {},
+      "color": {
+        "cardColor": "#3274D9",
+        "colorScale": "sqrt",
+        "colorScheme": "interpolateOranges",
+        "exponent": 0.5,
+        "mode": "opacity"
+      },
+      "dataFormat": "tsbuckets",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${golang-runtime-test}"
+      },
+      "description": "",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
+      "heatmap": {},
+      "hideZeroBuckets": false,
+      "highlightCards": true,
+      "id": 13,
+      "interval": "1m",
+      "legend": {
+        "show": true
+      },
+      "reverseYBuckets": false,
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${golang-runtime-test}"
+          },
+          "exemplar": true,
+          "expr": "sum by (le) (increase(label_replace(metrics_push_duration_seconds_bucket{namespace=~\"${namespace}\",env_name=~\"${env_name}\",app=~\"${app}\",server=~\"${server}\"}, \"le\", \"$1\",\"vmrange\", \"([^\\\\n]+)\\\\.\\\\.\\\\.([^\\\\n]+)\")[1m]))",
+          "format": "heatmap",
+          "interval": "",
+          "legendFormat": "{{le}}",
+          "refId": "A"
+        }
+      ],
+      "title": "metrics_push_duration_seconds_bucket",
+      "tooltip": {
+        "show": true,
+        "showHistogram": false
+      },
+      "tooltipDecimals": 2,
+      "type": "heatmap",
+      "xAxis": {
+        "show": true
+      },
+      "yAxis": {
+        "decimals": 2,
+        "format": "short",
+        "logBase": 1,
+        "show": true
+      },
+      "yBucketBound": "upper"
+    },
+    {
+      "cards": {},
+      "color": {
+        "cardColor": "#3274D9",
+        "colorScale": "sqrt",
+        "colorScheme": "interpolateOranges",
+        "exponent": 0.5,
+        "mode": "opacity"
+      },
+      "dataFormat": "tsbuckets",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${golang-runtime-test}"
+      },
+      "description": "",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
+      "heatmap": {},
+      "hideZeroBuckets": false,
+      "highlightCards": true,
+      "id": 14,
+      "interval": "1m",
+      "legend": {
+        "show": true
+      },
+      "reverseYBuckets": false,
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${golang-runtime-test}"
+          },
+          "exemplar": true,
+          "expr": "sum by (le) (increase(label_replace(metrics_push_block_size_bytes_bucket{namespace=~\"${namespace}\",env_name=~\"${env_name}\",app=~\"${app}\",server=~\"${server}\"}, \"le\", \"$1\",\"vmrange\", \"([^\\\\n]+)\\\\.\\\\.\\\\.([^\\\\n]+)\")[1m]))",
+          "format": "heatmap",
+          "interval": "",
+          "legendFormat": "{{le}}",
+          "refId": "A"
+        }
+      ],
+      "title": "metrics_push_block_size_bytes_bucket",
+      "tooltip": {
+        "show": true,
+        "showHistogram": false
+      },
+      "tooltipDecimals": 2,
+      "type": "heatmap",
+      "xAxis": {
+        "show": true
+      },
+      "yAxis": {
+        "decimals": 2,
+        "format": "decbytes",
+        "logBase": 1,
+        "show": true
+      },
+      "yBucketBound": "upper"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${golang-runtime-test}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 0,
+        "y": 23
+      },
+      "id": 6,
+      "interval": "1m",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${golang-runtime-test}"
+          },
+          "exemplar": true,
+          "expr": "sum by () (increase(go_cgo_calls_count{namespace=~\"${namespace}\",env_name=~\"${env_name}\",app=~\"${app}\",server=~\"${server}\"}[1m]))",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "go_cgo_calls_count",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${golang-runtime-test}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 6,
+        "y": 23
+      },
+      "id": 3,
+      "interval": "1m",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${golang-runtime-test}"
+          },
+          "exemplar": true,
+          "expr": "sum by () (increase(metrics_push_total{namespace=~\"${namespace}\",env_name=~\"${env_name}\",app=~\"${app}\",server=~\"${server}\"}[1m]))",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${golang-runtime-test}"
+          },
+          "exemplar": true,
+          "expr": "sum by () (increase(metrics_push_errors_total{namespace=~\"${namespace}\",env_name=~\"${env_name}\",app=~\"${app}\",server=~\"${server}\"}[1m]))",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "",
+          "refId": "B"
+        }
+      ],
+      "title": "metrics_push_total",
+      "type": "timeseries"
+    }
+  ],
+  "schemaVersion": 35,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "golang-runtime-test-ds",
+          "value": "golang-runtime-test-ds"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "data source",
+        "multi": false,
+        "name": "ds",
+        "options": [],
+        "query": "prometheus",
+        "queryValue": "",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
+      {
+        "allValue": ".*",
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${golang-runtime-test}"
+        },
+        "definition": "label_values(go_memstats_alloc_bytes, namespace)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "namespace",
+        "multi": true,
+        "name": "namespace",
+        "options": [],
+        "query": {
+          "query": "label_values(go_memstats_alloc_bytes, namespace)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${golang-runtime-test}"
+        },
+        "definition": "label_values(go_memstats_alloc_bytes, env_name)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "env",
+        "multi": true,
+        "name": "env_name",
+        "options": [],
+        "query": {
+          "query": "label_values(go_memstats_alloc_bytes, env_name)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${golang-runtime-test}"
+        },
+        "definition": "label_values(go_memstats_alloc_bytes, app)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "App",
+        "multi": true,
+        "name": "app",
+        "options": [],
+        "query": {
+          "query": "label_values(go_memstats_alloc_bytes, app)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${golang-runtime-test}"
+        },
+        "definition": "label_values(go_memstats_alloc_bytes, server)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Server",
+        "multi": true,
+        "name": "server",
+        "options": [],
+        "query": {
+          "query": "label_values(go_memstats_alloc_bytes, server)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "golang runtime metrics",
+  "uid": "kln1uLFVz",
+  "version": 17,
+  "weekStart": ""
+}
