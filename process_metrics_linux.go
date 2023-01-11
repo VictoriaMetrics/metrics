@@ -49,6 +49,10 @@ var processSelfIONotFoundErrorCount, processSelfIOPermErrorCount, processSelfErr
 func writeProcessMetrics(w io.Writer) {
 	statFilepath := "/proc/self/stat"
 	data, err := ioutil.ReadFile(statFilepath)
+	if err != nil {
+		log.Printf("ERROR: metrics: cannot open %s: %s", statFilepath, err)
+		return
+	}
 
 	// Search for the end of command.
 	n := bytes.LastIndex(data, []byte(") "))
