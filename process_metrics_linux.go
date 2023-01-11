@@ -43,12 +43,8 @@ type procStat struct {
 	Rss         int
 }
 
-var (
-	reportIoError                   = sync.Once{}
-	processSelfIONotFoundErrorCount = int64(0)
-	processSelfIOPermErrorCount     = int64(0)
-	processSelfErrorCount           = int64(0)
-)
+var reportIoError = sync.Once{}
+var processSelfIONotFoundErrorCount, processSelfIOPermErrorCount, processSelfErrorCount int64
 
 func writeProcessMetrics(w io.Writer) {
 	statFilepath := "/proc/self/stat"
@@ -97,30 +93,19 @@ func writeIOMetrics(w io.Writer) {
 	if err != nil {
 		// Do not spam the logs with errors
 		// This error will not be fixed without process restart
-		var reportErr func()
-		if os.IsNotExist(err) {
-			reportErr = func() {
-				log.Printf("ERROR: metrics: cannot open %q: %s. This is expected on kernel without CONFIG_TASK_IO_ACCOUNTING, systems without cgroup controller for IO. This error will be reported once, further errors can be tracked by 'process_io_stats_read_errors_total{reason=\"not_found\"}' metric", ioFilepath, err)
-			}
+		var errMsg string
+		switch {
+		case os.IsNotExist(err):
+			errMsg = fmt.Sprintf("ERROR: metrics: cannot open %q: %s. This is expected on kernel without CONFIG_TASK_IO_ACCOUNTING, systems without cgroup controller for IO. This error will be reported once, further errors can be tracked by 'process_io_stats_read_errors_total{reason=\"not_found\"}' metric", ioFilepath, err)
 			atomic.AddInt64(&processSelfIONotFoundErrorCount, 1)
-		} else if os.IsPermission(err) {
-			reportErr = func() {
-				log.Printf("ERROR: metrics: cannot open %q: %s. This is expected when process is running with limited permissions and capabilities (such as using systemd limitations, cgroups, selinux, apparmor and others). This error will be reported once, further errors can be tracked by 'process_io_stats_read_errors_total{reason=\"permission_denied\"' metric", ioFilepath, err)
-			}
+		case os.IsPermission(err):
+			errMsg = fmt.Sprintf("ERROR: metrics: cannot open %q: %s. This is expected when process is running with limited permissions and capabilities (such as using systemd limitations, cgroups, selinux, apparmor and others). This error will be reported once, further errors can be tracked by 'process_io_stats_read_errors_total{reason=\"permission_denied\"' metric", ioFilepath, err)
 			atomic.AddInt64(&processSelfIOPermErrorCount, 1)
-		} else {
-			reportErr = func() {
-				log.Printf("ERROR: metrics: cannot open %s: %s", ioFilepath, err)
-			}
+		default:
+			errMsg = fmt.Sprintf("ERROR: metrics: cannot open %s: %s", ioFilepath, err)
 			atomic.AddInt64(&processSelfErrorCount, 1)
 		}
-		reportIoError.Do(reportErr)
-
-		fmt.Fprintf(w, "process_io_stats_read_errors_total{reason=\"not_found\"} %d\n", atomic.LoadInt64(&processSelfIONotFoundErrorCount))
-		fmt.Fprintf(w, "process_io_stats_read_errors_total{reason=\"permission_denied\"} %d\n", atomic.LoadInt64(&processSelfIOPermErrorCount))
-		fmt.Fprintf(w, "process_io_stats_read_errors_total{reason=\"other\"} %d\n", atomic.LoadInt64(&processSelfErrorCount))
-
-		return
+		reportIoError.Do(func() { log.Println(errMsg) })
 	}
 
 	getInt := func(s string) int64 {
@@ -155,6 +140,10 @@ func writeIOMetrics(w io.Writer) {
 			writeBytes = getInt(s)
 		}
 	}
+
+	fmt.Fprintf(w, "process_io_stats_read_errors_total{reason=\"not_found\"} %d\n", atomic.LoadInt64(&processSelfIONotFoundErrorCount))
+	fmt.Fprintf(w, "process_io_stats_read_errors_total{reason=\"permission_denied\"} %d\n", atomic.LoadInt64(&processSelfIOPermErrorCount))
+	fmt.Fprintf(w, "process_io_stats_read_errors_total{reason=\"other\"} %d\n", atomic.LoadInt64(&processSelfErrorCount))
 	fmt.Fprintf(w, "process_io_read_bytes_total %d\n", rchar)
 	fmt.Fprintf(w, "process_io_written_bytes_total %d\n", wchar)
 	fmt.Fprintf(w, "process_io_read_syscalls_total %d\n", syscr)
