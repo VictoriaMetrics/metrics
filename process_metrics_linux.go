@@ -9,6 +9,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -41,13 +43,17 @@ type procStat struct {
 	Rss         int
 }
 
+var (
+	reportIoError                   = sync.Once{}
+	processSelfIONotFoundErrorCount = int64(0)
+	processSelfIOPermErrorCount     = int64(0)
+	processSelfErrorCount           = int64(0)
+)
+
 func writeProcessMetrics(w io.Writer) {
 	statFilepath := "/proc/self/stat"
 	data, err := ioutil.ReadFile(statFilepath)
-	if err != nil {
-		log.Printf("ERROR: metrics: cannot open %s: %s", statFilepath, err)
-		return
-	}
+
 	// Search for the end of command.
 	n := bytes.LastIndex(data, []byte(") "))
 	if n < 0 {
@@ -89,8 +95,34 @@ func writeIOMetrics(w io.Writer) {
 	ioFilepath := "/proc/self/io"
 	data, err := ioutil.ReadFile(ioFilepath)
 	if err != nil {
-		log.Printf("ERROR: metrics: cannot open %q: %s", ioFilepath, err)
+		// Do not spam the logs with errors
+		// This error will not be fixed without process restart
+		var reportErr func()
+		if os.IsNotExist(err) {
+			reportErr = func() {
+				log.Printf("ERROR: metrics: cannot open %q: %s. This is expected on kernel without CONFIG_TASK_IO_ACCOUNTING, systems without cgroup controller for IO. This error will be reported once, further errors can be tracked by 'process_io_stats_read_errors_total{reason=\"not_found\"}' metric", ioFilepath, err)
+			}
+			atomic.AddInt64(&processSelfIONotFoundErrorCount, 1)
+		} else if os.IsPermission(err) {
+			reportErr = func() {
+				log.Printf("ERROR: metrics: cannot open %q: %s. This is expected when process is running with limited permissions and capabilities (such as using systemd limitations, cgroups, selinux, apparmor and others). This error will be reported once, further errors can be tracked by 'process_io_stats_read_errors_total{reason=\"permission_denied\"' metric", ioFilepath, err)
+			}
+			atomic.AddInt64(&processSelfIOPermErrorCount, 1)
+		} else {
+			reportErr = func() {
+				log.Printf("ERROR: metrics: cannot open %s: %s", ioFilepath, err)
+			}
+			atomic.AddInt64(&processSelfErrorCount, 1)
+		}
+		reportIoError.Do(reportErr)
+
+		fmt.Fprintf(w, "process_io_stats_read_errors_total{reason=\"not_found\"} %d\n", atomic.LoadInt64(&processSelfIONotFoundErrorCount))
+		fmt.Fprintf(w, "process_io_stats_read_errors_total{reason=\"permission_denied\"} %d\n", atomic.LoadInt64(&processSelfIOPermErrorCount))
+		fmt.Fprintf(w, "process_io_stats_read_errors_total{reason=\"other\"} %d\n", atomic.LoadInt64(&processSelfErrorCount))
+
+		return
 	}
+
 	getInt := func(s string) int64 {
 		n := strings.IndexByte(s, ' ')
 		if n < 0 {
