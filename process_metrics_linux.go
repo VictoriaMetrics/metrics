@@ -9,7 +9,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -43,8 +42,26 @@ type procStat struct {
 	Rss         int
 }
 
-var reportIoError = sync.Once{}
 var processSelfIONotFoundErrorCount, processSelfIOPermErrorCount, processSelfErrorCount int64
+
+func init() {
+	ioFilepath := "/proc/self/io"
+	_, err := ioutil.ReadFile(ioFilepath)
+	if err != nil {
+		// Do not spam the logs with errors
+		// This error will not be fixed without process restart
+		var errMsg string
+		switch {
+		case os.IsNotExist(err):
+			errMsg = fmt.Sprintf("ERROR: metrics: cannot open %q: %s. This is expected on kernel without CONFIG_TASK_IO_ACCOUNTING, systems without cgroup controller for IO. This error will be reported once, further errors can be tracked by 'process_io_stats_read_errors_total{reason=\"not_found\"}' metric", ioFilepath, err)
+		case os.IsPermission(err):
+			errMsg = fmt.Sprintf("ERROR: metrics: cannot open %q: %s. This is expected when process is running with limited permissions and capabilities (such as using systemd limitations, cgroups, selinux, apparmor and others). This error will be reported once, further errors can be tracked by 'process_io_stats_read_errors_total{reason=\"permission_denied\"' metric", ioFilepath, err)
+		default:
+			errMsg = fmt.Sprintf("ERROR: metrics: cannot open %s: %s", ioFilepath, err)
+		}
+		log.Print(errMsg)
+	}
+}
 
 func writeProcessMetrics(w io.Writer) {
 	statFilepath := "/proc/self/stat"
@@ -97,19 +114,14 @@ func writeIOMetrics(w io.Writer) {
 	if err != nil {
 		// Do not spam the logs with errors
 		// This error will not be fixed without process restart
-		var errMsg string
 		switch {
 		case os.IsNotExist(err):
-			errMsg = fmt.Sprintf("ERROR: metrics: cannot open %q: %s. This is expected on kernel without CONFIG_TASK_IO_ACCOUNTING, systems without cgroup controller for IO. This error will be reported once, further errors can be tracked by 'process_io_stats_read_errors_total{reason=\"not_found\"}' metric", ioFilepath, err)
 			atomic.AddInt64(&processSelfIONotFoundErrorCount, 1)
 		case os.IsPermission(err):
-			errMsg = fmt.Sprintf("ERROR: metrics: cannot open %q: %s. This is expected when process is running with limited permissions and capabilities (such as using systemd limitations, cgroups, selinux, apparmor and others). This error will be reported once, further errors can be tracked by 'process_io_stats_read_errors_total{reason=\"permission_denied\"' metric", ioFilepath, err)
 			atomic.AddInt64(&processSelfIOPermErrorCount, 1)
 		default:
-			errMsg = fmt.Sprintf("ERROR: metrics: cannot open %s: %s", ioFilepath, err)
 			atomic.AddInt64(&processSelfErrorCount, 1)
 		}
-		reportIoError.Do(func() { log.Println(errMsg) })
 	}
 
 	getInt := func(s string) int64 {
