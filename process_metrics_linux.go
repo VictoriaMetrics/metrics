@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -41,6 +42,27 @@ type procStat struct {
 	Rss         int
 }
 
+var processSelfIONotFoundErrorCount, processSelfIOPermErrorCount, processSelfErrorCount int64
+
+func init() {
+	ioFilepath := "/proc/self/io"
+	_, err := ioutil.ReadFile(ioFilepath)
+	if err != nil {
+		// Do not spam the logs with errors
+		// This error will not be fixed without process restart
+		var errMsg string
+		switch {
+		case os.IsNotExist(err):
+			errMsg = fmt.Sprintf("ERROR: metrics: cannot open %q: %s. This is expected on kernel without CONFIG_TASK_IO_ACCOUNTING, systems without cgroup controller for IO. This error will be reported once, further errors can be tracked by 'process_io_stats_read_errors_total{reason=\"not_found\"}' metric", ioFilepath, err)
+		case os.IsPermission(err):
+			errMsg = fmt.Sprintf("ERROR: metrics: cannot open %q: %s. This is expected when process is running with limited permissions and capabilities (such as using systemd limitations, cgroups, selinux, apparmor and others). This error will be reported once, further errors can be tracked by 'process_io_stats_read_errors_total{reason=\"permission_denied\"' metric", ioFilepath, err)
+		default:
+			errMsg = fmt.Sprintf("ERROR: metrics: cannot open %s: %s", ioFilepath, err)
+		}
+		log.Print(errMsg)
+	}
+}
+
 func writeProcessMetrics(w io.Writer) {
 	statFilepath := "/proc/self/stat"
 	data, err := ioutil.ReadFile(statFilepath)
@@ -48,6 +70,7 @@ func writeProcessMetrics(w io.Writer) {
 		log.Printf("ERROR: metrics: cannot open %s: %s", statFilepath, err)
 		return
 	}
+
 	// Search for the end of command.
 	n := bytes.LastIndex(data, []byte(") "))
 	if n < 0 {
@@ -89,8 +112,18 @@ func writeIOMetrics(w io.Writer) {
 	ioFilepath := "/proc/self/io"
 	data, err := ioutil.ReadFile(ioFilepath)
 	if err != nil {
-		log.Printf("ERROR: metrics: cannot open %q: %s", ioFilepath, err)
+		// Do not spam the logs with errors
+		// This error will not be fixed without process restart
+		switch {
+		case os.IsNotExist(err):
+			atomic.AddInt64(&processSelfIONotFoundErrorCount, 1)
+		case os.IsPermission(err):
+			atomic.AddInt64(&processSelfIOPermErrorCount, 1)
+		default:
+			atomic.AddInt64(&processSelfErrorCount, 1)
+		}
 	}
+
 	getInt := func(s string) int64 {
 		n := strings.IndexByte(s, ' ')
 		if n < 0 {
@@ -123,6 +156,10 @@ func writeIOMetrics(w io.Writer) {
 			writeBytes = getInt(s)
 		}
 	}
+
+	fmt.Fprintf(w, "process_io_stats_read_errors_total{reason=\"not_found\"} %d\n", atomic.LoadInt64(&processSelfIONotFoundErrorCount))
+	fmt.Fprintf(w, "process_io_stats_read_errors_total{reason=\"permission_denied\"} %d\n", atomic.LoadInt64(&processSelfIOPermErrorCount))
+	fmt.Fprintf(w, "process_io_stats_read_errors_total{reason=\"other\"} %d\n", atomic.LoadInt64(&processSelfErrorCount))
 	fmt.Fprintf(w, "process_io_read_bytes_total %d\n", rchar)
 	fmt.Fprintf(w, "process_io_written_bytes_total %d\n", wchar)
 	fmt.Fprintf(w, "process_io_read_syscalls_total %d\n", syscr)
