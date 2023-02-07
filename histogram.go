@@ -233,10 +233,14 @@ func (h *Histogram) marshalTo(prefix string, w io.Writer) {
 }
 func (h *Histogram) marshalToPrometheus(prefix string, w io.Writer) {
 	countTotal := uint64(0)
+	inf := false
 	h.VisitNonZeroBuckets(func(vmrange string, count uint64) {
 		v := strings.Split(vmrange, "...")
 		if len(v) != 2 {
 			return
+		}
+		if v[1] == "+Inf" {
+			inf = true
 		}
 		tag := fmt.Sprintf("le=%q", v[1])
 		metricName := addTag(prefix, tag)
@@ -246,6 +250,12 @@ func (h *Histogram) marshalToPrometheus(prefix string, w io.Writer) {
 	})
 	if countTotal == 0 {
 		return
+	}
+	if !inf {
+		tag := fmt.Sprintf("le=%q", "+Inf")
+		metricName := addTag(prefix, tag)
+		name, labels := splitMetricName(metricName)
+		fmt.Fprintf(w, "%s_bucket%s %d\n", name, labels, countTotal)
 	}
 	name, labels := splitMetricName(prefix)
 	sum := h.getSum()
