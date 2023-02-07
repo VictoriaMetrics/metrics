@@ -84,7 +84,7 @@ func (s *Set) NewHistogram(name string, compatible bool) *Histogram {
 // The returned histogram is safe to use from concurrent goroutines.
 //
 // Performance tip: prefer NewHistogram instead of GetOrCreateHistogram.
-func (s *Set) GetOrCreateHistogram(name string) *Histogram {
+func (s *Set) GetOrCreateHistogram(name string, compatible bool) *Histogram {
 	s.mu.Lock()
 	nm := s.m[name]
 	s.mu.Unlock()
@@ -95,7 +95,7 @@ func (s *Set) GetOrCreateHistogram(name string) *Histogram {
 		}
 		nmNew := &namedMetric{
 			name:   name,
-			metric: &Histogram{},
+			metric: &Histogram{compatible: compatible},
 		}
 		s.mu.Lock()
 		nm = s.m[name]

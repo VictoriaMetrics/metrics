@@ -173,7 +173,10 @@ func NewHistogramByVM(name string) *Histogram {
 //
 // Performance tip: prefer NewHistogram instead of GetOrCreateHistogram.
 func GetOrCreateHistogram(name string) *Histogram {
-	return defaultSet.GetOrCreateHistogram(name)
+	return defaultSet.GetOrCreateHistogram(name, true)
+}
+func GetOrCreateHistogramByVM(name string) *Histogram {
+	return defaultSet.GetOrCreateHistogram(name, false)
 }
 
 // UpdateDuration updates request duration based on the given startTime.
