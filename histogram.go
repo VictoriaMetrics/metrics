@@ -152,10 +152,10 @@ func (h *Histogram) VisitNonZeroBuckets(f func(vmrange string, count uint64)) {
 //
 // The returned histogram is safe to use from concurrent goroutines.
 func NewHistogram(name string) *Histogram {
-	return defaultSet.NewHistogram(name, true)
-}
-func NewHistogramByVM(name string) *Histogram {
 	return defaultSet.NewHistogram(name, false)
+}
+func NewCompatibleHistogram(name string) *Histogram {
+	return defaultSet.NewHistogram(name, true)
 }
 
 // GetOrCreateHistogram returns registered histogram with the given name
@@ -173,10 +173,10 @@ func NewHistogramByVM(name string) *Histogram {
 //
 // Performance tip: prefer NewHistogram instead of GetOrCreateHistogram.
 func GetOrCreateHistogram(name string) *Histogram {
-	return defaultSet.GetOrCreateHistogram(name, true)
-}
-func GetOrCreateHistogramByVM(name string) *Histogram {
 	return defaultSet.GetOrCreateHistogram(name, false)
+}
+func GetOrCreateCompatibleHistogram(name string) *Histogram {
+	return defaultSet.GetOrCreateHistogram(name, true)
 }
 
 // UpdateDuration updates request duration based on the given startTime.
