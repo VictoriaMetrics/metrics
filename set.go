@@ -65,8 +65,8 @@ func (s *Set) WritePrometheus(w io.Writer) {
 //   - foo{bar="baz",aaa="b"}
 //
 // The returned histogram is safe to use from concurrent goroutines.
-func (s *Set) NewHistogram(name string) *Histogram {
-	h := &Histogram{}
+func (s *Set) NewHistogram(name string, compatible bool) *Histogram {
+	h := &Histogram{compatible: compatible}
 	s.registerMetric(name, h)
 	return h
 }

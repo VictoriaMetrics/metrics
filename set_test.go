@@ -29,7 +29,7 @@ func TestNewSet(t *testing.T) {
 			if sm == nil {
 				t.Fatalf("NewSummary returned nil")
 			}
-			h := s.NewHistogram(fmt.Sprintf("histogram_%d", j))
+			h := s.NewHistogram(fmt.Sprintf("histogram_%d", j), false)
 			if h == nil {
 				t.Fatalf("NewHistogram returned nil")
 			}
@@ -71,7 +71,7 @@ func TestSetUnregisterAllMetrics(t *testing.T) {
 		for i := 0; i < 10; i++ {
 			_ = s.NewCounter(fmt.Sprintf("counter_%d", i))
 			_ = s.NewSummary(fmt.Sprintf("summary_%d", i))
-			_ = s.NewHistogram(fmt.Sprintf("histogram_%d", i))
+			_ = s.NewHistogram(fmt.Sprintf("histogram_%d", i), false)
 			_ = s.NewGauge(fmt.Sprintf("gauge_%d", i), func() float64 { return 0 })
 			expectedMetricsCount += 4
 		}
