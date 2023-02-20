@@ -65,8 +65,13 @@ func (s *Set) WritePrometheus(w io.Writer) {
 //   - foo{bar="baz",aaa="b"}
 //
 // The returned histogram is safe to use from concurrent goroutines.
-func (s *Set) NewHistogram(name string, compatible bool) *Histogram {
-	h := &Histogram{compatible: compatible}
+func (s *Set) NewHistogram(name string) *Histogram {
+	h := &Histogram{}
+	s.registerMetric(name, h)
+	return h
+}
+func (s *Set) NewCompatibleHistogram(name string) *Histogram {
+	h := &Histogram{compatible: true}
 	s.registerMetric(name, h)
 	return h
 }
@@ -84,7 +89,7 @@ func (s *Set) NewHistogram(name string, compatible bool) *Histogram {
 // The returned histogram is safe to use from concurrent goroutines.
 //
 // Performance tip: prefer NewHistogram instead of GetOrCreateHistogram.
-func (s *Set) GetOrCreateHistogram(name string, compatible bool) *Histogram {
+func (s *Set) GetOrCreateHistogram(name string) *Histogram {
 	s.mu.Lock()
 	nm := s.m[name]
 	s.mu.Unlock()
@@ -95,7 +100,35 @@ func (s *Set) GetOrCreateHistogram(name string, compatible bool) *Histogram {
 		}
 		nmNew := &namedMetric{
 			name:   name,
-			metric: &Histogram{compatible: compatible},
+			metric: &Histogram{},
+		}
+		s.mu.Lock()
+		nm = s.m[name]
+		if nm == nil {
+			nm = nmNew
+			s.m[name] = nm
+			s.a = append(s.a, nm)
+		}
+		s.mu.Unlock()
+	}
+	h, ok := nm.metric.(*Histogram)
+	if !ok {
+		panic(fmt.Errorf("BUG: metric %q isn't a Histogram. It is %T", name, nm.metric))
+	}
+	return h
+}
+func (s *Set) GetOrCreateCompatibleHistogram(name string) *Histogram {
+	s.mu.Lock()
+	nm := s.m[name]
+	s.mu.Unlock()
+	if nm == nil {
+		// Slow path - create and register missing histogram.
+		if err := validateMetric(name); err != nil {
+			panic(fmt.Errorf("BUG: invalid metric name %q: %s", name, err))
+		}
+		nmNew := &namedMetric{
+			name:   name,
+			metric: &Histogram{compatible: true},
 		}
 		s.mu.Lock()
 		nm = s.m[name]
