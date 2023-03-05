@@ -185,7 +185,9 @@ func InitPushExt(pushURL string, interval time.Duration, extraLabels string, wri
 // https://docs.victoriametrics.com/#how-to-import-data-in-prometheus-exposition-format
 func InitPushByURLsExt(pushURLs []string, interval time.Duration, extraLabels string, writeMetrics func(w io.Writer)) error {
 	for _, u := range pushURLs {
-		return InitPushExt(u, interval, extraLabels, writeMetrics)
+		if err := InitPushExt(u, interval, extraLabels, writeMetrics); err != nil {
+			return fmt.Errorf("cannot initialize pushmetrics %s: %s", u, err)
+		}
 	}
 	return nil
 }
