@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"bytes"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -9,8 +10,6 @@ import (
 	"net/http"
 	"net/url"
 	"time"
-
-	"compress/gzip"
 )
 
 // InitPushProcessMetrics sets up periodic push for 'process_*' metrics to the given pushURL with the given interval.
@@ -171,6 +170,23 @@ func InitPushExt(pushURL string, interval time.Duration, extraLabels string, wri
 			_ = resp.Body.Close()
 		}
 	}()
+	return nil
+}
+
+// InitPushByURLsExt sets up periodic push by defined URLs for metrics obtained by calling writeMetrics with the given interval.
+//
+// extraLabels may contain comma-separated list of `label="value"` labels, which will be added
+// to all the metrics before pushing them to pushURL.
+//
+// The writeMetrics callback must write metrics to w in Prometheus text exposition format without timestamps and trailing comments.
+// See https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-based-format
+//
+// It is recommended pushing metrics to /api/v1/import/prometheus endpoint according to
+// https://docs.victoriametrics.com/#how-to-import-data-in-prometheus-exposition-format
+func InitPushByURLsExt(pushURLs []string, interval time.Duration, extraLabels string, writeMetrics func(w io.Writer)) error {
+	for _, u := range pushURLs {
+		return InitPushExt(u, interval, extraLabels, writeMetrics)
+	}
 	return nil
 }
 
