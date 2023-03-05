@@ -5,7 +5,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -156,7 +155,6 @@ func TestInitPushURLsExt(t *testing.T) {
 			}
 
 			if err := InitPushByURLsExt(tt.pushURLs, tt.interval, tt.extraLabels, tt.writeMetrics); (err != nil) != tt.wantErr {
-				log.Printf("ERROR =. %s", err)
 				t.Errorf("InitPushURLsExt() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
