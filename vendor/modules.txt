@@ -3,3 +3,7 @@ github.com/valyala/fastrand
 # github.com/valyala/histogram v1.2.0
 ## explicit
 github.com/valyala/histogram
+# golang.org/x/sys v0.7.0
+## explicit
+golang.org/x/sys/internal/unsafeheader
+golang.org/x/sys/windows
