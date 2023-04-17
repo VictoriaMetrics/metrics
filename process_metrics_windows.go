@@ -1,3 +1,6 @@
+//go:build windows
+// +build windows
+
 package metrics
 
 import (
@@ -52,8 +55,8 @@ func writeProcessMetrics(w io.Writer) {
 		log.Printf("ERROR: metrics: cannot read process memory information: %s", err)
 		return
 	}
-	stimeSeconds := uint64(stime.HighDateTime)<<32 + uint64(stime.LowDateTime)/1e7
-	utimeSeconds := uint64(utime.HighDateTime)<<32 + uint64(utime.LowDateTime)/1e7
+	stimeSeconds := (uint64(stime.HighDateTime)<<32 + uint64(stime.LowDateTime)) / 1e7
+	utimeSeconds := (uint64(utime.HighDateTime)<<32 + uint64(utime.LowDateTime)) / 1e7
 	fmt.Fprintf(w, "process_cpu_seconds_system_total %d\n", stimeSeconds)
 	fmt.Fprintf(w, "process_cpu_seconds_total %d\n", stimeSeconds+utimeSeconds)
 	fmt.Fprintf(w, "process_cpu_seconds_user_total %d\n", stimeSeconds)
