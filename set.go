@@ -19,7 +19,6 @@ type Set struct {
 	a         []*namedMetric
 	m         map[string]*namedMetric
 	summaries []*Summary
-	pushUrl   string
 }
 
 // NewSet creates new set of metrics.
