@@ -56,27 +56,6 @@ func InitPush(pushURL string, interval time.Duration, extraLabels string, pushPr
 	return InitPushExt(pushURL, interval, extraLabels, writeMetrics)
 }
 
-// InitPush sets up periodic push for metrics from s to the given pushURL with the given interval.
-//
-// extraLabels may contain comma-separated list of `label="value"` labels, which will be added
-// to all the metrics before pushing them to pushURL.
-//
-// / The metrics are pushed to pushURL in Prometheus text exposition format.
-// See https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-based-format
-//
-// It is recommended pushing metrics to /api/v1/import/prometheus endpoint according to
-// https://docs.victoriametrics.com/#how-to-import-data-in-prometheus-exposition-format
-//
-// It is OK calling InitPush multiple times with different pushURL -
-// in this case metrics are pushed to all the provided pushURL urls.
-// func (s *Set) InitPush(pushURL string, interval time.Duration, extraLabels string) error {
-// 	writeMetrics := func(w io.Writer) {
-// 		s.WritePrometheus(w)
-// 	}
-// 	s.pushUrl = pushURL
-// 	return InitPushExt(pushURL, interval, extraLabels, writeMetrics)
-// }
-
 var (
 	chanSliceMu = &sync.RWMutex{}
 	chanSlice   = []*chanMutex{}
@@ -172,8 +151,7 @@ func InitPushExt(pushURL string, interval time.Duration, extraLabels string, wri
 	}
 
 	// record the signal for sending metrics
-	ch := make(chan struct{})
-	cm := &chanMutex{c: ch, m: &sync.Mutex{}}
+	cm := &chanMutex{c: make(chan struct{}), m: &sync.Mutex{}}
 	chanSliceMu.Lock()
 	chanSlice = append(chanSlice, cm)
 	chanSliceMu.Unlock()
@@ -196,58 +174,60 @@ func InitPushExt(pushURL string, interval time.Duration, extraLabels string, wri
 		for {
 			select {
 			case _, ok := <-cm.c:
-				if !ok {
-					pushCloseTotal.Inc()
-				}
-
-				bb.Reset()
-				writeMetrics(&bb)
-				if len(extraLabels) > 0 {
-					tmpBuf = addExtraLabels(tmpBuf[:0], bb.Bytes(), extraLabels)
-					bb.Reset()
-					if _, err := bb.Write(tmpBuf); err != nil {
-						panic(fmt.Errorf("BUG: cannot write %d bytes to bytes.Buffer: %s", len(tmpBuf), err))
+				{
+					if !ok {
+						pushCloseTotal.Inc()
 					}
-				}
-				tmpBuf = append(tmpBuf[:0], bb.Bytes()...)
-				bb.Reset()
-				zw.Reset(&bb)
-				if _, err := zw.Write(tmpBuf); err != nil {
-					panic(fmt.Errorf("BUG: cannot write %d bytes to gzip writer: %s", len(tmpBuf), err))
-				}
-				if err := zw.Close(); err != nil {
-					panic(fmt.Errorf("BUG: cannot flush metrics to gzip writer: %s", err))
-				}
-				pushesTotal.Inc()
-				blockLen := bb.Len()
-				bytesPushedTotal.Add(blockLen)
-				pushBlockSize.Update(float64(blockLen))
-				req, err := http.NewRequest("GET", pushURL, &bb)
-				if err != nil {
-					panic(fmt.Errorf("BUG: metrics.push: cannot initialize request for metrics push to %q: %w", pushURLRedacted, err))
-				}
-				req.Header.Set("Content-Type", "text/plain")
-				req.Header.Set("Content-Encoding", "gzip")
-				startTime := time.Now()
-				resp, err := c.Do(req)
-				pushDuration.UpdateDuration(startTime)
-				if err != nil {
-					log.Printf("ERROR: metrics.push: cannot push metrics to %q: %s", pushURLRedacted, err)
-					pushErrorsTotal.Inc()
-					continue
-				}
-				if resp.StatusCode/100 != 2 {
-					body, _ := ioutil.ReadAll(resp.Body)
+
+					bb.Reset()
+					writeMetrics(&bb)
+					if len(extraLabels) > 0 {
+						tmpBuf = addExtraLabels(tmpBuf[:0], bb.Bytes(), extraLabels)
+						bb.Reset()
+						if _, err := bb.Write(tmpBuf); err != nil {
+							panic(fmt.Errorf("BUG: cannot write %d bytes to bytes.Buffer: %s", len(tmpBuf), err))
+						}
+					}
+					tmpBuf = append(tmpBuf[:0], bb.Bytes()...)
+					bb.Reset()
+					zw.Reset(&bb)
+					if _, err := zw.Write(tmpBuf); err != nil {
+						panic(fmt.Errorf("BUG: cannot write %d bytes to gzip writer: %s", len(tmpBuf), err))
+					}
+					if err := zw.Close(); err != nil {
+						panic(fmt.Errorf("BUG: cannot flush metrics to gzip writer: %s", err))
+					}
+					pushesTotal.Inc()
+					blockLen := bb.Len()
+					bytesPushedTotal.Add(blockLen)
+					pushBlockSize.Update(float64(blockLen))
+					req, err := http.NewRequest("GET", pushURL, &bb)
+					if err != nil {
+						panic(fmt.Errorf("BUG: metrics.push: cannot initialize request for metrics push to %q: %w", pushURLRedacted, err))
+					}
+					req.Header.Set("Content-Type", "text/plain")
+					req.Header.Set("Content-Encoding", "gzip")
+					startTime := time.Now()
+					resp, err := c.Do(req)
+					pushDuration.UpdateDuration(startTime)
+					if err != nil {
+						log.Printf("ERROR: metrics.push: cannot push metrics to %q: %s", pushURLRedacted, err)
+						pushErrorsTotal.Inc()
+						continue
+					}
+					if resp.StatusCode/100 != 2 {
+						body, _ := ioutil.ReadAll(resp.Body)
+						_ = resp.Body.Close()
+						log.Printf("ERROR: metrics.push: unexpected status code in response from %q: %d; expecting 2xx; response body: %q",
+							pushURLRedacted, resp.StatusCode, body)
+						pushErrorsTotal.Inc()
+						continue
+					}
 					_ = resp.Body.Close()
-					log.Printf("ERROR: metrics.push: unexpected status code in response from %q: %d; expecting 2xx; response body: %q",
-						pushURLRedacted, resp.StatusCode, body)
-					pushErrorsTotal.Inc()
-					continue
-				}
-				_ = resp.Body.Close()
-				if !ok {
-					closeWG.Done()
-					return
+					if !ok {
+						closeWG.Done()
+						return
+					}
 				}
 			}
 		}
