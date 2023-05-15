@@ -71,14 +71,11 @@ func TestInitPushFailure(t *testing.T) {
 func TestRunCloseTests(t *testing.T) {
 	f := func(name string, f func(t *testing.T)) {
 		t.Helper()
-		pushUrlChanMap = &sync.Map{}
 		closeWG = &sync.WaitGroup{}
 		t.Run(name, f)
 	}
 	f("test sigChan length", testSigChanLength)
-	f("test Set.pushUrl", testSetPushUrl)
 	f("test global close", testCloseGlobal)
-	f("test close for Set", testCloseForSet)
 }
 
 func testSigChanLength(t *testing.T) {
@@ -92,22 +89,12 @@ func testSigChanLength(t *testing.T) {
 		}(t)
 	}
 	wg.Wait()
-	counter := 0
-	pushUrlChanMap.Range(func(key, value interface{}) bool {
-		counter += 1
-		return true
-	})
-	if counter != 1 {
+	if len(chanSlice) != 500 {
 		t.Fatalf("expecting signChan leght to be 1")
 	}
-}
-
-func testSetPushUrl(t *testing.T) {
-	s := NewSet()
-	pushUrl := "https://foo.bar"
-	_ = s.InitPush(pushUrl, 10*time.Second, "")
-	if s.pushUrl != pushUrl {
-		t.Fatalf("expected set.PushUrl to be %q, got %s", pushUrl, s.pushUrl)
+	_ = Close()
+	if len(chanSlice) != 0 {
+		t.Fatalf("expecting signChan leght to be 0 after close")
 	}
 }
 
@@ -126,66 +113,9 @@ func testCloseGlobal(t *testing.T) {
 	if !strings.Contains(resp, "foo_bar_total 1") {
 		t.Errorf(`metrics does not contain "foo_bar_total 1"`)
 	}
+
 	if !strings.Contains(resp, fmt.Sprintf(`metrics_push_close_total{url="%s"} 1`, svrUrl)) {
 		t.Errorf(`close metric not increamented"`)
-	}
-}
-
-func testCloseForSet(t *testing.T) {
-	bb1 := new(bytes.Buffer)
-	bb2 := new(bytes.Buffer)
-
-	s1 := NewSet()
-	s2 := NewSet()
-
-	_ = s1.InitPush(setupRequestRecorder(t, bb1), 10*time.Minute, "")
-	_ = s2.InitPush(setupRequestRecorder(t, bb2), 10*time.Minute, "")
-
-	counter1 := s1.NewCounter("foo_bar_total")
-	counter2 := s2.NewCounter("foo_bar_total")
-	counter1.Inc()
-	counter2.Inc()
-
-	sigCount := 0
-	pushUrlChanMap.Range(func(k, v interface{}) bool {
-		sigCount += 1
-		return true
-	})
-	if sigCount != 2 {
-		t.Errorf("expectec sigChan to have length %d, got %d", 2, sigCount)
-	}
-
-	_ = s1.Close()
-
-	counter2.Inc()
-
-	sigCount = 0
-	pushUrlChanMap.Range(func(k, v interface{}) bool {
-		sigCount += 1
-		return true
-	})
-	if sigCount != 1 {
-		t.Errorf("expectec sigChan to have length %d, got %d", 1, sigCount)
-	}
-
-	_ = s2.Close()
-
-	sigCount = 0
-	pushUrlChanMap.Range(func(k, v interface{}) bool {
-		sigCount += 1
-		return true
-	})
-	if sigCount != 0 {
-		t.Errorf("expectec sigChan to have length %d, got %d", 0, sigCount)
-	}
-
-	resp := bb1.String()
-	if !strings.Contains(resp, "foo_bar_total 1") {
-		t.Errorf(`s1 metrics does not contain "foo_bar_total 1"`)
-	}
-	resp = bb2.String()
-	if !strings.Contains(resp, "foo_bar_total 2") {
-		t.Errorf(`s2 metrics does not contain "foo_bar_total 2"`)
 	}
 }
 
