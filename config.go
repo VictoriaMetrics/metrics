@@ -11,8 +11,8 @@ import (
 	"time"
 )
 
-// RequestConfig is config for pushing registered metrics to the given pushURL with the given interval.
-type RequestConfig struct {
+// PushConfig is config for pushing registered metrics to the given pushURL with the given interval.
+type PushConfig struct {
 	// headers contain optional http request headers
 	headers http.Header
 
@@ -27,7 +27,7 @@ type RequestConfig struct {
 	writeMetrics func(w io.Writer)
 }
 
-func New(pushURL string, interval time.Duration, extraLabels string, writeMetrics func(w io.Writer), headers http.Header) (*RequestConfig, error) {
+func New(pushURL string, interval time.Duration, extraLabels string, writeMetrics func(w io.Writer), headers http.Header) (*PushConfig, error) {
 	if interval <= 0 {
 		return nil, fmt.Errorf("interval must be positive; got %s", interval)
 	}
@@ -45,7 +45,7 @@ func New(pushURL string, interval time.Duration, extraLabels string, writeMetric
 		return nil, fmt.Errorf("missing host in pushURL=%q", pushURL)
 	}
 
-	rp := &RequestConfig{
+	rp := &PushConfig{
 		headers:      headers,
 		pushURL:      pu,
 		interval:     interval,
@@ -55,27 +55,27 @@ func New(pushURL string, interval time.Duration, extraLabels string, writeMetric
 	return rp, nil
 }
 
-// Request run request to the defined pushURL every interval
-func (rc *RequestConfig) Request() {
-	pushURLRedacted := rc.pushURL.Redacted()
+// Push run request to the defined pushURL every interval
+func (pc *PushConfig) Push() {
+	pushURLRedacted := pc.pushURL.Redacted()
 	cl := &http.Client{
-		Timeout: rc.interval,
+		Timeout: pc.interval,
 	}
 	pushesTotal := pushMetrics.GetOrCreateCounter(fmt.Sprintf(`metrics_push_total{url=%q}`, pushURLRedacted))
 	pushErrorsTotal := pushMetrics.GetOrCreateCounter(fmt.Sprintf(`metrics_push_errors_total{url=%q}`, pushURLRedacted))
 	bytesPushedTotal := pushMetrics.GetOrCreateCounter(fmt.Sprintf(`metrics_push_bytes_pushed_total{url=%q}`, pushURLRedacted))
 	pushDuration := pushMetrics.GetOrCreateHistogram(fmt.Sprintf(`metrics_push_duration_seconds{url=%q}`, pushURLRedacted))
 	pushBlockSize := pushMetrics.GetOrCreateHistogram(fmt.Sprintf(`metrics_push_block_size_bytes{url=%q}`, pushURLRedacted))
-	pushMetrics.GetOrCreateFloatCounter(fmt.Sprintf(`metrics_push_interval_seconds{url=%q}`, pushURLRedacted)).Set(rc.interval.Seconds())
-	ticker := time.NewTicker(rc.interval)
+	pushMetrics.GetOrCreateFloatCounter(fmt.Sprintf(`metrics_push_interval_seconds{url=%q}`, pushURLRedacted)).Set(pc.interval.Seconds())
+	ticker := time.NewTicker(pc.interval)
 	var bb bytes.Buffer
 	var tmpBuf []byte
 	zw := gzip.NewWriter(&bb)
 	for range ticker.C {
 		bb.Reset()
-		rc.writeMetrics(&bb)
-		if len(rc.extraLabels) > 0 {
-			tmpBuf = addExtraLabels(tmpBuf[:0], bb.Bytes(), rc.extraLabels)
+		pc.writeMetrics(&bb)
+		if len(pc.extraLabels) > 0 {
+			tmpBuf = addExtraLabels(tmpBuf[:0], bb.Bytes(), pc.extraLabels)
 			bb.Reset()
 			if _, err := bb.Write(tmpBuf); err != nil {
 				panic(fmt.Errorf("BUG: cannot write %d bytes to bytes.Buffer: %s", len(tmpBuf), err))
@@ -94,12 +94,12 @@ func (rc *RequestConfig) Request() {
 		blockLen := bb.Len()
 		bytesPushedTotal.Add(blockLen)
 		pushBlockSize.Update(float64(blockLen))
-		u := rc.pushURL.String()
+		u := pc.pushURL.String()
 		req, err := http.NewRequest("GET", u, &bb)
 		if err != nil {
 			panic(fmt.Errorf("BUG: metrics.push: cannot initialize request for metrics push to %q: %w", pushURLRedacted, err))
 		}
-		rc.SetHeaders(req)
+		pc.SetHeaders(req)
 		req.Header.Set("Content-Type", "text/plain")
 		req.Header.Set("Content-Encoding", "gzip")
 		startTime := time.Now()
@@ -123,9 +123,9 @@ func (rc *RequestConfig) Request() {
 }
 
 // SetHeaders can be used to set defined headers to the http request
-func (rc *RequestConfig) SetHeaders(req *http.Request) {
+func (pc *PushConfig) SetHeaders(req *http.Request) {
 	reqHeaders := req.Header
-	for key, h := range rc.headers {
+	for key, h := range pc.headers {
 		for _, s := range h {
 			reqHeaders.Add(key, s)
 		}
