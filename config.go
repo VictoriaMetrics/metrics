@@ -11,71 +11,69 @@ import (
 	"time"
 )
 
-// PushConfig is config for pushing registered metrics to the given pushURL with the given interval.
+// PushConfig is config for pushing registered metrics to the given PushURL with the given Interval.
+//
+// PushURL and Interval are required fields
 type PushConfig struct {
-	// headers contain optional http request headers
-	headers http.Header
+	// PushURL defines URL where metrics would be pushed.
+	PushURL string
+	// Interval determines the frequency of pushing metrics.
+	Interval time.Duration
 
-	// pushURL defines URL where metrics would be pushed
+	// Headers contain optional http request Headers
+	Headers http.Header
+	// ExtraLabels may contain comma-separated list of `label="value"` labels, which will be added
+	// to all the metrics before pushing them to PushURL.
+	ExtraLabels string
+	// WriteMetrics defines the function to write metrics
+	WriteMetrics func(w io.Writer)
+
 	pushURL *url.URL
-	// interval determines the frequency of pushing metrics
-	interval time.Duration
-	// extraLabels may contain comma-separated list of `label="value"` labels, which will be added
-	// to all the metrics before pushing them to pushURL.
-	extraLabels string
-	// writeMetrics defines the function to write metrics
-	writeMetrics func(w io.Writer)
 }
 
-func New(pushURL string, interval time.Duration, extraLabels string, writeMetrics func(w io.Writer), headers http.Header) (*PushConfig, error) {
-	if interval <= 0 {
-		return nil, fmt.Errorf("interval must be positive; got %s", interval)
+// Validate checks the defined fields and returns error if some of the field
+// has incorrect value
+func (pc *PushConfig) Validate() error {
+	if pc.Interval <= 0 {
+		return fmt.Errorf("interval must be positive; got %s", pc.Interval)
 	}
-	if err := validateTags(extraLabels); err != nil {
-		return nil, fmt.Errorf("invalid extraLabels=%q: %w", extraLabels, err)
+	if err := validateTags(pc.ExtraLabels); err != nil {
+		return fmt.Errorf("invalid ExtraLabels=%q: %w", pc.ExtraLabels, err)
 	}
-	pu, err := url.Parse(pushURL)
+	pu, err := parseURL(pc.PushURL)
 	if err != nil {
-		return nil, fmt.Errorf("cannot parse pushURL=%q: %w", pushURL, err)
-	}
-	if pu.Scheme != "http" && pu.Scheme != "https" {
-		return nil, fmt.Errorf("unsupported scheme in pushURL=%q; expecting 'http' or 'https'", pushURL)
-	}
-	if pu.Host == "" {
-		return nil, fmt.Errorf("missing host in pushURL=%q", pushURL)
+		return fmt.Errorf("field PushURL not valid: %w", err)
 	}
 
-	rp := &PushConfig{
-		headers:      headers,
-		pushURL:      pu,
-		interval:     interval,
-		extraLabels:  extraLabels,
-		writeMetrics: writeMetrics,
-	}
-	return rp, nil
+	pc.pushURL = pu
+	return nil
 }
 
-// Push run request to the defined pushURL every interval
+// Push run request to the defined PushURL every Interval
 func (pc *PushConfig) Push() {
 	pushURLRedacted := pc.pushURL.Redacted()
+	// by default set interval to one second
+	if pc.Interval == 0 {
+		pc.Interval = time.Second
+	}
 	cl := &http.Client{
-		Timeout: pc.interval,
+		Timeout: pc.Interval,
 	}
 	pushesTotal := pushMetrics.GetOrCreateCounter(fmt.Sprintf(`metrics_push_total{url=%q}`, pushURLRedacted))
 	pushErrorsTotal := pushMetrics.GetOrCreateCounter(fmt.Sprintf(`metrics_push_errors_total{url=%q}`, pushURLRedacted))
 	bytesPushedTotal := pushMetrics.GetOrCreateCounter(fmt.Sprintf(`metrics_push_bytes_pushed_total{url=%q}`, pushURLRedacted))
 	pushDuration := pushMetrics.GetOrCreateHistogram(fmt.Sprintf(`metrics_push_duration_seconds{url=%q}`, pushURLRedacted))
 	pushBlockSize := pushMetrics.GetOrCreateHistogram(fmt.Sprintf(`metrics_push_block_size_bytes{url=%q}`, pushURLRedacted))
-	pushMetrics.GetOrCreateFloatCounter(fmt.Sprintf(`metrics_push_interval_seconds{url=%q}`, pushURLRedacted)).Set(pc.interval.Seconds())
-	ticker := time.NewTicker(pc.interval)
+	pushMetrics.GetOrCreateFloatCounter(fmt.Sprintf(`metrics_push_interval_seconds{url=%q}`, pushURLRedacted)).Set(pc.Interval.Seconds())
+	ticker := time.NewTicker(pc.Interval)
 	var bb bytes.Buffer
 	var tmpBuf []byte
 	zw := gzip.NewWriter(&bb)
 	for range ticker.C {
 		bb.Reset()
-		pc.writeMetrics(&bb)
-		if len(pc.extraLabels) > 0 {
-			tmpBuf = addExtraLabels(tmpBuf[:0], bb.Bytes(), pc.extraLabels)
+		pc.WriteMetrics(&bb)
+		if len(pc.ExtraLabels) > 0 {
+			tmpBuf = addExtraLabels(tmpBuf[:0], bb.Bytes(), pc.ExtraLabels)
 			bb.Reset()
 			if _, err := bb.Write(tmpBuf); err != nil {
 				panic(fmt.Errorf("BUG: cannot write %d bytes to bytes.Buffer: %s", len(tmpBuf), err))
@@ -122,12 +120,29 @@ func (pc *PushConfig) Push() {
 	}
 }
 
-// SetHeaders can be used to set defined headers to the http request
+// SetHeaders can be used to set defined Headers to the http request
 func (pc *PushConfig) SetHeaders(req *http.Request) {
 	reqHeaders := req.Header
-	for key, h := range pc.headers {
+	for key, h := range pc.Headers {
 		for _, s := range h {
 			reqHeaders.Add(key, s)
 		}
 	}
+}
+
+func parseURL(u string) (*url.URL, error) {
+	if u == "" {
+		return nil, fmt.Errorf("url cannot br empty")
+	}
+	pu, err := url.Parse(u)
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse url=%q: %w", u, err)
+	}
+	if pu.Scheme != "http" && pu.Scheme != "https" {
+		return nil, fmt.Errorf("unsupported scheme in url=%q; expecting 'http' or 'https'", u)
+	}
+	if pu.Host == "" {
+		return nil, fmt.Errorf("missing host in url=%q", u)
+	}
+	return pu, nil
 }
