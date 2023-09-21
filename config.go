@@ -25,8 +25,6 @@ type PushConfig struct {
 	// ExtraLabels may contain comma-separated list of `label="value"` labels, which will be added
 	// to all the metrics before pushing them to PushURL.
 	ExtraLabels string
-	// WriteMetrics defines the function to write metrics
-	WriteMetrics func(w io.Writer)
 
 	pushURL *url.URL
 }
@@ -50,7 +48,10 @@ func (pc *PushConfig) Validate() error {
 }
 
 // Push run request to the defined PushURL every Interval
-func (pc *PushConfig) Push() {
+func (pc *PushConfig) Push(writeMetrics func(w io.Writer)) {
+	if writeMetrics == nil {
+		panic(fmt.Errorf("write metrics function not defined"))
+	}
 	pushURLRedacted := pc.pushURL.Redacted()
 	// by default set interval to one second
 	if pc.Interval == 0 {
@@ -71,7 +72,7 @@ func (pc *PushConfig) Push() {
 	zw := gzip.NewWriter(&bb)
 	for range ticker.C {
 		bb.Reset()
-		pc.WriteMetrics(&bb)
+		writeMetrics(&bb)
 		if len(pc.ExtraLabels) > 0 {
 			tmpBuf = addExtraLabels(tmpBuf[:0], bb.Bytes(), pc.ExtraLabels)
 			bb.Reset()
