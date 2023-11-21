@@ -3,12 +3,85 @@ package metrics
 import (
 	"fmt"
 	"io"
+	"log"
 	"runtime"
+	runtime_metrics "runtime/metrics"
 
 	"github.com/valyala/histogram"
 )
 
+func writeRuntimeFloat64Metric(w io.Writer, name string, sample runtime_metrics.Sample) {
+	if sample.Value.Kind() == runtime_metrics.KindBad {
+		// skip not supported metric
+		return
+	}
+	fmt.Fprintf(w, "%s %g\n", name, sample.Value.Float64())
+}
+
+func writeRuntimeHistogramMetric(w io.Writer, name string, sample runtime_metrics.Sample) {
+	if sample.Value.Kind() == runtime_metrics.KindBad {
+		// skip not supported metric
+		return
+	}
+	h := sample.Value.Float64Histogram()
+	if len(h.Buckets) == 0 {
+		return
+	}
+	// sanity check
+	if len(h.Buckets) < len(h.Counts) {
+		log.Printf("ERROR: runtime_metrics.histogram: %q bad format for histogram, expected buckets to be less then counts, got: bucket %d: counts: %d", name, len(h.Buckets), len(h.Counts))
+		return
+	}
+	var sum uint64
+	cursor := 0
+	// filter empty bins and convert histogram to cumulative
+	for idx, weight := range h.Counts {
+		if weight == 0 {
+			continue
+		}
+		sum += weight
+		h.Counts[cursor] = sum
+		h.Buckets[cursor] = h.Buckets[idx]
+		cursor++
+	}
+	h.Counts = h.Counts[:cursor]
+	h.Buckets = h.Buckets[:cursor]
+	quantile := func(phi float64) float64 {
+		switch phi {
+		case 0:
+			return h.Buckets[0]
+		case 1:
+			// its guaranteed that histogram bucket has at least three values -inf, bound and + inf
+			return h.Buckets[len(h.Buckets)-2]
+		}
+		reqValue := phi * float64(sum)
+		prevIdx := 0
+		for idx, weight := range h.Counts {
+			if reqValue < float64(weight) {
+				prevIdx = idx
+				continue
+			}
+			break
+		}
+
+		return h.Buckets[prevIdx]
+	}
+	phis := []float64{0, 0.25, 0.5, 0.75, 1}
+	for _, phi := range phis {
+		q := quantile(phi)
+		fmt.Fprintf(w, `%s{quantile="%g"} %g`+"\n", name, phi, q)
+	}
+}
+
 func writeGoMetrics(w io.Writer) {
+	runtimeMetricSamples := [2]runtime_metrics.Sample{
+		{Name: "/sched/latencies:seconds"},
+		{Name: "/sync/mutex/wait/total:seconds"},
+	}
+	runtime_metrics.Read(runtimeMetricSamples[:])
+	writeRuntimeHistogramMetric(w, "go_sched_latency_seconds", runtimeMetricSamples[0])
+	writeRuntimeFloat64Metric(w, "go_mutex_wait_total_seconds", runtimeMetricSamples[1])
+
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
 	fmt.Fprintf(w, "go_memstats_alloc_bytes %d\n", ms.Alloc)
@@ -17,6 +90,7 @@ func writeGoMetrics(w io.Writer) {
 	fmt.Fprintf(w, "go_memstats_frees_total %d\n", ms.Frees)
 	fmt.Fprintf(w, "go_memstats_gc_cpu_fraction %g\n", ms.GCCPUFraction)
 	fmt.Fprintf(w, "go_memstats_gc_sys_bytes %d\n", ms.GCSys)
+
 	fmt.Fprintf(w, "go_memstats_heap_alloc_bytes %d\n", ms.HeapAlloc)
 	fmt.Fprintf(w, "go_memstats_heap_idle_bytes %d\n", ms.HeapIdle)
 	fmt.Fprintf(w, "go_memstats_heap_inuse_bytes %d\n", ms.HeapInuse)
