@@ -23,6 +23,7 @@ func writeRuntimeHistogramMetric(w io.Writer, name string, sample runtime_metric
 		// skip not supported metric
 		return
 	}
+	// it's unsafe to modify histogram
 	h := sample.Value.Float64Histogram()
 	if len(h.Buckets) == 0 {
 		return
@@ -33,19 +34,13 @@ func writeRuntimeHistogramMetric(w io.Writer, name string, sample runtime_metric
 		return
 	}
 	var sum uint64
-	cursor := 0
 	// filter empty bins and convert histogram to cumulative
-	for idx, weight := range h.Counts {
+	for _, weight := range h.Counts {
 		if weight == 0 {
 			continue
 		}
 		sum += weight
-		h.Counts[cursor] = sum
-		h.Buckets[cursor] = h.Buckets[idx]
-		cursor++
 	}
-	h.Counts = h.Counts[:cursor]
-	h.Buckets = h.Buckets[:cursor]
 	quantile := func(phi float64) float64 {
 		switch phi {
 		case 0:
@@ -56,8 +51,10 @@ func writeRuntimeHistogramMetric(w io.Writer, name string, sample runtime_metric
 		}
 		reqValue := phi * float64(sum)
 		prevIdx := 0
+		cumulativeWeight := uint64(0)
 		for idx, weight := range h.Counts {
-			if reqValue < float64(weight) {
+			cumulativeWeight += weight
+			if reqValue < float64(cumulativeWeight) {
 				prevIdx = idx
 				continue
 			}
