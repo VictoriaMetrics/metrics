@@ -3,23 +3,25 @@ package metrics
 import (
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"runtime"
-	runtime_metrics "runtime/metrics"
+	runtimemetrics "runtime/metrics"
 
 	"github.com/valyala/histogram"
 )
 
+// See https://pkg.go.dev/runtime/metrics#hdr-Supported_metrics
+var runtimeMetrics = [][2]string{
+	{"/sched/latencies:seconds", "go_sched_latencies_seconds"},
+	{"/sync/mutex/wait/total:seconds", "go_mutex_wait_seconds_total"},
+	{"/cpu/classes/gc/mark/assist:cpu-seconds", "go_gc_mark_assist_cpu_seconds_total"},
+	{"/cpu/classes/gc/total:cpu-seconds", "go_gc_cpu_seconds_total"},
+	{"/cpu/classes/scavenge/total:cpu-seconds", "go_scavenge_cpu_seconds_total"},
+	{"/gc/gomemlimit:bytes", "go_memlimit_bytes"},
+}
+
 func writeGoMetrics(w io.Writer) {
-	// https://pkg.go.dev/runtime/metrics#hdr-Supported_metrics
-	runtimeMetricSamples := [2]runtime_metrics.Sample{
-		{Name: "/sched/latencies:seconds"},
-		{Name: "/sync/mutex/wait/total:seconds"},
-	}
-	runtime_metrics.Read(runtimeMetricSamples[:])
-	writeRuntimeMetric(w, "go_sched_latency_seconds", runtimeMetricSamples[0])
-	writeRuntimeMetric(w, "go_mutex_wait_total_seconds", runtimeMetricSamples[1])
+	writeRuntimeMetrics(w)
 
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
@@ -76,75 +78,39 @@ func writeGoMetrics(w io.Writer) {
 		runtime.Compiler, runtime.GOARCH, runtime.GOOS, runtime.GOROOT())
 }
 
-func writeRuntimeMetric(w io.Writer, name string, sample runtime_metrics.Sample) {
+func writeRuntimeMetrics(w io.Writer) {
+	samples := make([]runtimemetrics.Sample, len(runtimeMetrics))
+	for i, rm := range runtimeMetrics {
+		samples[i].Name = rm[0]
+	}
+	runtimemetrics.Read(samples)
+	for i, rm := range runtimeMetrics {
+		writeRuntimeMetric(w, rm[1], &samples[i])
+	}
+}
+
+func writeRuntimeMetric(w io.Writer, name string, sample *runtimemetrics.Sample) {
 	switch sample.Value.Kind() {
-	case runtime_metrics.KindBad:
-		// not supported sample kind by current runtime version
-		return
-	case runtime_metrics.KindUint64:
+	case runtimemetrics.KindBad:
+		panic(fmt.Errorf("BUG: unexpected runtimemetrics.KindBad"))
+	case runtimemetrics.KindUint64:
 		fmt.Fprintf(w, "%s %d\n", name, sample.Value.Uint64())
-	case runtime_metrics.KindFloat64:
+	case runtimemetrics.KindFloat64:
 		fmt.Fprintf(w, "%s %g\n", name, sample.Value.Float64())
-	case runtime_metrics.KindFloat64Histogram:
+	case runtimemetrics.KindFloat64Histogram:
 		writeRuntimeHistogramMetric(w, name, sample.Value.Float64Histogram())
 	}
 }
 
-func writeRuntimeHistogramMetric(w io.Writer, name string, h *runtime_metrics.Float64Histogram) {
-	// it's unsafe to modify histogram
-	if len(h.Buckets) == 0 {
-		return
+func writeRuntimeHistogramMetric(w io.Writer, name string, h *runtimemetrics.Float64Histogram) {
+	runningCount := uint64(0)
+	buckets := h.Buckets
+	for i, count := range h.Counts {
+		fmt.Fprintf(w, `%s_bucket{le="%g"} %d`+"\n", name, buckets[i], runningCount)
+		runningCount += count
 	}
-	// sanity check
-	if len(h.Buckets) < len(h.Counts) {
-		log.Printf("ERROR: runtime_metrics.histogram: %q bad format for histogram, expected buckets to be less then counts, got: bucket %d: counts: %d", name, len(h.Buckets), len(h.Counts))
-		return
-	}
-	var sum uint64
-	// filter empty bins and convert histogram to cumulative
-	for _, weight := range h.Counts {
-		if weight == 0 {
-			continue
-		}
-		sum += weight
-	}
-	var lastNonInf float64
-	for i := len(h.Buckets) - 1; i > 0; i-- {
-		if !math.IsInf(h.Buckets[i], 0) {
-			lastNonInf = h.Buckets[i]
-			break
-		}
-	}
-	quantile := func(phi float64) float64 {
-		switch phi {
-		case 0:
-			return h.Buckets[0]
-		case 1:
-			return lastNonInf
-		}
-		reqValue := phi * float64(sum)
-		upperBoundIdx := 0
-		cumulativeWeight := uint64(0)
-		for idx, weight := range h.Counts {
-			cumulativeWeight += weight
-			if float64(cumulativeWeight) > reqValue {
-				upperBoundIdx = idx
-				break
-			}
-		}
-		// the first bucket is inclusive
-		if upperBoundIdx > 0 {
-			upperBoundIdx++
-		}
-		// last bucket may have an inf value, return last non inf in this case
-		if upperBoundIdx >= len(h.Buckets)-1 {
-			return lastNonInf
-		}
-		return h.Buckets[upperBoundIdx]
-	}
-	phis := []float64{0, 0.25, 0.5, 0.75, 0.95, 1}
-	for _, phi := range phis {
-		q := quantile(phi)
-		fmt.Fprintf(w, `%s{quantile="%g"} %g`+"\n", name, phi, q)
+	fmt.Fprintf(w, `%s_bucket{le="%g"} %d`+"\n", name, buckets[len(buckets)-1], runningCount)
+	if !math.IsInf(buckets[len(buckets)-1], 1) {
+		fmt.Fprintf(w, `%s_bucket{le="+Inf"} %d`+"\n", name, runningCount)
 	}
 }
