@@ -22,44 +22,40 @@ func TestWriteRuntimeHistogramMetricOk(t *testing.T) {
 	f(&runtimemetrics.Float64Histogram{
 		Counts:  []uint64{1, 2, 3},
 		Buckets: []float64{1, 2, 3, 4},
-	}, `foo_bucket{le="1"} 0
-foo_bucket{le="2"} 1
-foo_bucket{le="3"} 3
-foo_bucket{le="4"} 6
-foo_bucket{le="+Inf"} 6
+	}, `foo{quantile="0.5"} 3
+foo{quantile="0.9"} 4
+foo{quantile="0.97"} 4
+foo{quantile="0.99"} 4
+foo{quantile="1"} 4
 `)
 
 	f(&runtimemetrics.Float64Histogram{
-		Counts:  []uint64{0, 25, 1, 3},
+		Counts:  []uint64{0, 25, 1, 0},
 		Buckets: []float64{1, 2, 3, 4, math.Inf(1)},
-	}, `foo_bucket{le="1"} 0
-foo_bucket{le="2"} 0
-foo_bucket{le="3"} 25
-foo_bucket{le="4"} 26
-foo_bucket{le="+Inf"} 29
+	}, `foo{quantile="0.5"} 3
+foo{quantile="0.9"} 3
+foo{quantile="0.97"} 4
+foo{quantile="0.99"} 4
+foo{quantile="1"} 4
 `)
 
 	f(&runtimemetrics.Float64Histogram{
-		Counts:  []uint64{0, 25, 1, 3, 0, 44, 15, 132, 10, 11},
+		Counts:  []uint64{0, 25, 1, 3, 0, 44, 15, 132, 10, 0},
 		Buckets: []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, math.Inf(1)},
-	}, `foo_bucket{le="1"} 0
-foo_bucket{le="2"} 0
-foo_bucket{le="3"} 25
-foo_bucket{le="4"} 26
-foo_bucket{le="5"} 29
-foo_bucket{le="6"} 29
-foo_bucket{le="7"} 73
-foo_bucket{le="8"} 88
-foo_bucket{le="9"} 220
-foo_bucket{le="10"} 230
-foo_bucket{le="+Inf"} 241
+	}, `foo{quantile="0.5"} 9
+foo{quantile="0.9"} 9
+foo{quantile="0.97"} 10
+foo{quantile="0.99"} 10
+foo{quantile="1"} 10
 `)
 
 	f(&runtimemetrics.Float64Histogram{
-		Counts:  []uint64{1, 5},
-		Buckets: []float64{math.Inf(-1), 4, math.Inf(1)},
-	}, `foo_bucket{le="-Inf"} 0
-foo_bucket{le="4"} 1
-foo_bucket{le="+Inf"} 6
+		Counts:  []uint64{1, 5, 0},
+		Buckets: []float64{math.Inf(-1), 4, 5, math.Inf(1)},
+	}, `foo{quantile="0.5"} 5
+foo{quantile="0.9"} 5
+foo{quantile="0.97"} 5
+foo{quantile="0.99"} 5
+foo{quantile="1"} 5
 `)
 }

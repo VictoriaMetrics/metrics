@@ -16,6 +16,7 @@ var runtimeMetrics = [][2]string{
 	{"/sync/mutex/wait/total:seconds", "go_mutex_wait_seconds_total"},
 	{"/cpu/classes/gc/mark/assist:cpu-seconds", "go_gc_mark_assist_cpu_seconds_total"},
 	{"/cpu/classes/gc/total:cpu-seconds", "go_gc_cpu_seconds_total"},
+	{"/gc/pauses:seconds", "go_gc_pauses_seconds"},
 	{"/cpu/classes/scavenge/total:cpu-seconds", "go_scavenge_cpu_seconds_total"},
 	{"/gc/gomemlimit:bytes", "go_memlimit_bytes"},
 }
@@ -103,14 +104,23 @@ func writeRuntimeMetric(w io.Writer, name string, sample *runtimemetrics.Sample)
 }
 
 func writeRuntimeHistogramMetric(w io.Writer, name string, h *runtimemetrics.Float64Histogram) {
-	runningCount := uint64(0)
+	// Expose histogram metric as summary, since Go runtime returns too many histogram buckets,
+	// which may lead to high cardinality issues at the scraper side.
 	buckets := h.Buckets
-	for i, count := range h.Counts {
-		fmt.Fprintf(w, `%s_bucket{le="%g"} %d`+"\n", name, buckets[i], runningCount)
-		runningCount += count
+	counts := h.Counts
+	totalCount := uint64(0)
+	for _, count := range counts {
+		totalCount += count
 	}
-	fmt.Fprintf(w, `%s_bucket{le="%g"} %d`+"\n", name, buckets[len(buckets)-1], runningCount)
-	if !math.IsInf(buckets[len(buckets)-1], 1) {
-		fmt.Fprintf(w, `%s_bucket{le="+Inf"} %d`+"\n", name, runningCount)
+	for _, q := range defaultSummaryQuantiles {
+		upperBound := uint64(math.Ceil(q * float64(totalCount)))
+		runningCount := uint64(0)
+		for i, count := range counts {
+			runningCount += count
+			if runningCount >= upperBound {
+				fmt.Fprintf(w, `%s{quantile="%g"} %g`+"\n", name, q, buckets[i+1])
+				break
+			}
+		}
 	}
 }
