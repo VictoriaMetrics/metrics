@@ -6,6 +6,7 @@ import (
 	"math"
 	"runtime"
 	runtimemetrics "runtime/metrics"
+	"strings"
 
 	"github.com/valyala/histogram"
 )
@@ -104,23 +105,40 @@ func writeRuntimeMetric(w io.Writer, name string, sample *runtimemetrics.Sample)
 }
 
 func writeRuntimeHistogramMetric(w io.Writer, name string, h *runtimemetrics.Float64Histogram) {
-	// Expose histogram metric as summary, since Go runtime returns too many histogram buckets,
-	// which may lead to high cardinality issues at the scraper side.
 	buckets := h.Buckets
 	counts := h.Counts
-	totalCount := uint64(0)
-	for _, count := range counts {
-		totalCount += count
+	if len(buckets) != len(counts)+1 {
+		panic(fmt.Errorf("the number of buckets must be bigger than the number of counts by 1 in histogram %s; got buckets=%d, counts=%d", name, len(buckets), len(counts)))
 	}
-	for _, q := range defaultSummaryQuantiles {
-		upperBound := uint64(math.Ceil(q * float64(totalCount)))
-		runningCount := uint64(0)
-		for i, count := range counts {
-			runningCount += count
-			if runningCount >= upperBound {
-				fmt.Fprintf(w, `%s{quantile="%g"} %g`+"\n", name, q, buckets[i+1])
-				break
+	tailCount := uint64(0)
+	if strings.HasSuffix(name, "_seconds") {
+		// Limit the maximum bucket to 1 second, since Go runtime exposes buckets with 10K seconds,
+		// which have little sense. At the same time such buckets may lead to high cardinality issues
+		// at the scraper side.
+		for len(buckets) > 0 && buckets[len(buckets)-1] > 1 {
+			buckets = buckets[:len(buckets)-1]
+			tailCount += counts[len(counts)-1]
+			counts = counts[:len(counts)-1]
+		}
+	}
+
+	iStep := float64(len(buckets)) / maxRuntimeHistogramBuckets
+
+	totalCount := uint64(0)
+	iNext := 0.0
+	for i, count := range counts {
+		totalCount += count
+		if float64(i) >= iNext {
+			iNext += iStep
+			le := buckets[i+1]
+			if !math.IsInf(le, 1) {
+				fmt.Fprintf(w, `%s_bucket{le="%g"} %d`+"\n", name, le, totalCount)
 			}
 		}
 	}
+	totalCount += tailCount
+	fmt.Fprintf(w, `%s_bucket{le="+Inf"} %d`+"\n", name, totalCount)
 }
+
+// Limit the number of buckets for Go runtime histograms in order to prevent from high cardinality issues at scraper side.
+const maxRuntimeHistogramBuckets = 30
