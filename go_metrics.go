@@ -3,12 +3,26 @@ package metrics
 import (
 	"fmt"
 	"io"
+	"math"
 	"runtime"
+	runtimemetrics "runtime/metrics"
 
 	"github.com/valyala/histogram"
 )
 
+// See https://pkg.go.dev/runtime/metrics#hdr-Supported_metrics
+var runtimeMetrics = [][2]string{
+	{"/sched/latencies:seconds", "go_sched_latencies_seconds"},
+	{"/sync/mutex/wait/total:seconds", "go_mutex_wait_seconds_total"},
+	{"/cpu/classes/gc/mark/assist:cpu-seconds", "go_gc_mark_assist_cpu_seconds_total"},
+	{"/cpu/classes/gc/total:cpu-seconds", "go_gc_cpu_seconds_total"},
+	{"/cpu/classes/scavenge/total:cpu-seconds", "go_scavenge_cpu_seconds_total"},
+	{"/gc/gomemlimit:bytes", "go_memlimit_bytes"},
+}
+
 func writeGoMetrics(w io.Writer) {
+	writeRuntimeMetrics(w)
+
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
 	fmt.Fprintf(w, "go_memstats_alloc_bytes %d\n", ms.Alloc)
@@ -17,6 +31,7 @@ func writeGoMetrics(w io.Writer) {
 	fmt.Fprintf(w, "go_memstats_frees_total %d\n", ms.Frees)
 	fmt.Fprintf(w, "go_memstats_gc_cpu_fraction %g\n", ms.GCCPUFraction)
 	fmt.Fprintf(w, "go_memstats_gc_sys_bytes %d\n", ms.GCSys)
+
 	fmt.Fprintf(w, "go_memstats_heap_alloc_bytes %d\n", ms.HeapAlloc)
 	fmt.Fprintf(w, "go_memstats_heap_idle_bytes %d\n", ms.HeapIdle)
 	fmt.Fprintf(w, "go_memstats_heap_inuse_bytes %d\n", ms.HeapInuse)
@@ -61,4 +76,41 @@ func writeGoMetrics(w io.Writer) {
 	fmt.Fprintf(w, "go_info{version=%q} 1\n", runtime.Version())
 	fmt.Fprintf(w, "go_info_ext{compiler=%q, GOARCH=%q, GOOS=%q, GOROOT=%q} 1\n",
 		runtime.Compiler, runtime.GOARCH, runtime.GOOS, runtime.GOROOT())
+}
+
+func writeRuntimeMetrics(w io.Writer) {
+	samples := make([]runtimemetrics.Sample, len(runtimeMetrics))
+	for i, rm := range runtimeMetrics {
+		samples[i].Name = rm[0]
+	}
+	runtimemetrics.Read(samples)
+	for i, rm := range runtimeMetrics {
+		writeRuntimeMetric(w, rm[1], &samples[i])
+	}
+}
+
+func writeRuntimeMetric(w io.Writer, name string, sample *runtimemetrics.Sample) {
+	switch sample.Value.Kind() {
+	case runtimemetrics.KindBad:
+		panic(fmt.Errorf("BUG: unexpected runtimemetrics.KindBad for sample.Name=%q", sample.Name))
+	case runtimemetrics.KindUint64:
+		fmt.Fprintf(w, "%s %d\n", name, sample.Value.Uint64())
+	case runtimemetrics.KindFloat64:
+		fmt.Fprintf(w, "%s %g\n", name, sample.Value.Float64())
+	case runtimemetrics.KindFloat64Histogram:
+		writeRuntimeHistogramMetric(w, name, sample.Value.Float64Histogram())
+	}
+}
+
+func writeRuntimeHistogramMetric(w io.Writer, name string, h *runtimemetrics.Float64Histogram) {
+	runningCount := uint64(0)
+	buckets := h.Buckets
+	for i, count := range h.Counts {
+		fmt.Fprintf(w, `%s_bucket{le="%g"} %d`+"\n", name, buckets[i], runningCount)
+		runningCount += count
+	}
+	fmt.Fprintf(w, `%s_bucket{le="%g"} %d`+"\n", name, buckets[len(buckets)-1], runningCount)
+	if !math.IsInf(buckets[len(buckets)-1], 1) {
+		fmt.Fprintf(w, `%s_bucket{le="+Inf"} %d`+"\n", name, runningCount)
+	}
 }
