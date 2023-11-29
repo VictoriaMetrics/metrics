@@ -92,7 +92,7 @@ func writeRuntimeMetrics(w io.Writer) {
 func writeRuntimeMetric(w io.Writer, name string, sample *runtimemetrics.Sample) {
 	switch sample.Value.Kind() {
 	case runtimemetrics.KindBad:
-		panic(fmt.Errorf("BUG: unexpected runtimemetrics.KindBad"))
+		panic(fmt.Errorf("BUG: unexpected runtimemetrics.KindBad for sample.Name=%q", sample.Name))
 	case runtimemetrics.KindUint64:
 		fmt.Fprintf(w, "%s %d\n", name, sample.Value.Uint64())
 	case runtimemetrics.KindFloat64:
