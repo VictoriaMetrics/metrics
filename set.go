@@ -52,7 +52,7 @@ func (s *Set) WritePrometheus(w io.Writer) {
 	var metricFamily string
 	for _, nm := range sa {
 		if writeMetadata && metricFamily != nm.family {
-			// write meta
+			// write meta info only once per metric family
 			metricFamily = nm.family
 			nm.metric.marshalMeta(metricFamily, &bb)
 		}
@@ -61,7 +61,6 @@ func (s *Set) WritePrometheus(w io.Writer) {
 		nm.metric.marshalTo(nm.name, &bb)
 	}
 	w.Write(bb.Bytes())
-	return
 }
 
 // NewHistogram creates and returns new histogram in s with the given name.
