@@ -174,7 +174,7 @@ func InitPushWithConfig(cfg PushConfig) error {
 			req.Header.Set("Content-Encoding", "gzip")
 			for k, vs := range cfg.Headers {
 				for _, v := range vs {
-					req.Header.Set(k, v)
+					req.Header.Add(k, v)
 				}
 			}
 			startTime := time.Now()
