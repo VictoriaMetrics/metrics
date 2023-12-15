@@ -46,6 +46,12 @@ func (g *Gauge) marshalTo(prefix string, w io.Writer) {
 	}
 }
 
+// marshalMeta marshals g meta info with the given prefix to w.
+func (g *Gauge) marshalMeta(prefix string, w io.Writer) {
+	fmt.Fprintf(w, "# HELP %s\n", prefix)
+	fmt.Fprintf(w, "# TYPE %s gauge\n", prefix)
+}
+
 // GetOrCreateGauge returns registered gauge with the given name
 // or creates new gauge if the registry doesn't contain gauge with
 // the given name.

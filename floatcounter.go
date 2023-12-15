@@ -63,6 +63,12 @@ func (fc *FloatCounter) marshalTo(prefix string, w io.Writer) {
 	fmt.Fprintf(w, "%s %g\n", prefix, v)
 }
 
+// marshalMeta marshals fc meta info with the given prefix to w.
+func (fc *FloatCounter) marshalMeta(prefix string, w io.Writer) {
+	fmt.Fprintf(w, "# HELP %s\n", prefix)
+	fmt.Fprintf(w, "# TYPE %s counter\n", prefix)
+}
+
 // GetOrCreateFloatCounter returns registered FloatCounter with the given name
 // or creates new FloatCounter if the registry doesn't contain FloatCounter with
 // the given name.

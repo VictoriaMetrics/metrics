@@ -21,12 +21,14 @@ import (
 
 type namedMetric struct {
 	name   string
+	family string
 	metric metric
 	isAux  bool
 }
 
 type metric interface {
 	marshalTo(prefix string, w io.Writer)
+	marshalMeta(prefix string, w io.Writer)
 }
 
 var defaultSet = NewSet()
@@ -240,4 +242,24 @@ func ListMetricNames() []string {
 // GetDefaultSet returns the default metrics set.
 func GetDefaultSet() *Set {
 	return defaultSet
+}
+
+var (
+	exposeMetadata     bool
+	exposeMetadataLock sync.Mutex
+)
+
+// ExposeMetadata allows enabling adding TYPE and HELP metadata to the exposed metrics globally, for all Set.
+// It is safe to call this method multiple times. It is allowed to change it in runtime.
+// ExposeMetadata is set to false by default.
+func ExposeMetadata(v bool) {
+	exposeMetadataLock.Lock()
+	exposeMetadata = v
+	exposeMetadataLock.Unlock()
+}
+
+func isMetadataEnabled() bool {
+	exposeMetadataLock.Lock()
+	defer exposeMetadataLock.Unlock()
+	return exposeMetadata
 }

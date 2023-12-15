@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -47,12 +48,20 @@ func (s *Set) WritePrometheus(w io.Writer) {
 	sa := append([]*namedMetric(nil), s.a...)
 	s.mu.Unlock()
 
-	// Call marshalTo without the global lock, since certain metric types such as Gauge
-	// can call a callback, which, in turn, can try calling s.mu.Lock again.
+	var writeMetadata = isMetadataEnabled()
+	var metricFamily string
 	for _, nm := range sa {
+		if writeMetadata && metricFamily != nm.family {
+			// write meta
+			metricFamily = nm.family
+			nm.metric.marshalMeta(metricFamily, &bb)
+		}
+		// Call marshalTo without the global lock, since certain metric types such as Gauge
+		// can call a callback, which, in turn, can try calling s.mu.Lock again.
 		nm.metric.marshalTo(nm.name, &bb)
 	}
 	w.Write(bb.Bytes())
+	return
 }
 
 // NewHistogram creates and returns new histogram in s with the given name.
@@ -441,8 +450,13 @@ func (s *Set) registerMetric(name string, m metric) {
 func (s *Set) mustRegisterLocked(name string, m metric, isAux bool) {
 	nm, ok := s.m[name]
 	if !ok {
+		i := strings.IndexByte(name, '{')
+		if i < 0 {
+			i = len(name)
+		}
 		nm = &namedMetric{
 			name:   name,
+			family: name[:i],
 			metric: m,
 			isAux:  isAux,
 		}

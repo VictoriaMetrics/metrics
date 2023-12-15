@@ -76,6 +76,12 @@ metrics.InitPush("http://victoria-metrics:8428/api/v1/import/prometheus", 10*tim
 // metrics.InitPushWithConfig(metrics.PushConfig{URL: "http://victoria-metrics:8428/api/v1/import/prometheus", Interval: 10*time.Second})
 ```
 
+By default, exposed metrics [do not have](https://github.com/VictoriaMetrics/metrics/issues/48#issuecomment-1620765811)
+`TYPE` or `HELP` meta information. To enable meta information in exposition format use 
+[ExposeMetadata](https://pkg.go.dev/github.com/VictoriaMetrics/metrics#ExposeMetadata) function. 
+Please note, meta information is ignored by [VictoriaMetrics](https://docs.victoriametrics.com/) and 
+[vmagent](https://docs.victoriametrics.com/vmagent.html) on scrape or ingest.
+
 See [docs](http://godoc.org/github.com/VictoriaMetrics/metrics) for more info.
 
 
