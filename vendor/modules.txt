@@ -1,9 +1,8 @@
 # github.com/valyala/fastrand v1.1.0
-## explicit
 github.com/valyala/fastrand
 # github.com/valyala/histogram v1.2.0
-## explicit; go 1.12
+## explicit
 github.com/valyala/histogram
 # golang.org/x/sys v0.15.0
-## explicit; go 1.18
+## explicit
 golang.org/x/sys/windows

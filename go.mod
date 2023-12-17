@@ -5,6 +5,4 @@ require (
 	golang.org/x/sys v0.15.0
 )
 
-require github.com/valyala/fastrand v1.1.0 // indirect
-
-go 1.20
+go 1.16

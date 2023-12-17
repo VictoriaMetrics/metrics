@@ -1,11 +1,20 @@
 package metrics
 
 import (
+	"bytes"
 	"math"
 	runtimemetrics "runtime/metrics"
 	"strings"
 	"testing"
 )
+
+func TestWriteRuntimeMetrics(t *testing.T) {
+	var bb bytes.Buffer
+	writeRuntimeMetrics(&bb)
+	if n := bb.Len(); n == 0 {
+		t.Fatalf("unexpected empty runtime metrics")
+	}
+}
 
 func TestWriteRuntimeHistogramMetricOk(t *testing.T) {
 	f := func(h *runtimemetrics.Float64Histogram, resultExpected string) {
