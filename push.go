@@ -2,6 +2,8 @@ package metrics
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -32,6 +34,8 @@ type PushOptions struct {
 
 // InitPushWithOptions sets up periodic push for globally registered metrics to the given pushURL with the given interval.
 //
+// The periodic push is stopped when ctx is canceled.
+//
 // If pushProcessMetrics is set to true, then 'process_*' and `go_*` metrics are also pushed to pushURL.
 //
 // opts may contain additional configuration options if non-nil.
@@ -44,11 +48,11 @@ type PushOptions struct {
 //
 // It is OK calling InitPushWithOptions multiple times with different pushURL -
 // in this case metrics are pushed to all the provided pushURL urls.
-func InitPushWithOptions(pushURL string, interval time.Duration, pushProcessMetrics bool, opts *PushOptions) error {
+func InitPushWithOptions(ctx context.Context, pushURL string, interval time.Duration, pushProcessMetrics bool, opts *PushOptions) error {
 	writeMetrics := func(w io.Writer) {
 		WritePrometheus(w, pushProcessMetrics)
 	}
-	return initPushWithOptions(pushURL, interval, writeMetrics, opts)
+	return initPushWithOptions(ctx, pushURL, interval, writeMetrics, opts)
 }
 
 // InitPushProcessMetrics sets up periodic push for 'process_*' metrics to the given pushURL with the given interval.
@@ -95,6 +99,8 @@ func InitPush(pushURL string, interval time.Duration, extraLabels string, pushPr
 
 // InitPushWithOptions sets up periodic push for metrics from s to the given pushURL with the given interval.
 //
+// The periodic push is stopped when the ctx is canceled.
+//
 // opts may contain additional configuration options if non-nil.
 //
 // The metrics are pushed to pushURL in Prometheus text exposition format.
@@ -105,11 +111,11 @@ func InitPush(pushURL string, interval time.Duration, extraLabels string, pushPr
 //
 // It is OK calling InitPushWithOptions multiple times with different pushURL -
 // in this case metrics are pushed to all the provided pushURL urls.
-func (s *Set) InitPushWithOptions(pushURL string, interval time.Duration, opts *PushOptions) error {
+func (s *Set) InitPushWithOptions(ctx context.Context, pushURL string, interval time.Duration, opts *PushOptions) error {
 	writeMetrics := func(w io.Writer) {
 		s.WritePrometheus(w)
 	}
-	return initPushWithOptions(pushURL, interval, writeMetrics, opts)
+	return initPushWithOptions(ctx, pushURL, interval, writeMetrics, opts)
 }
 
 // InitPush sets up periodic push for metrics from s to the given pushURL with the given interval.
@@ -152,10 +158,10 @@ func InitPushExt(pushURL string, interval time.Duration, extraLabels string, wri
 	opts := &PushOptions{
 		ExtraLabels: extraLabels,
 	}
-	return initPushWithOptions(pushURL, interval, writeMetrics, opts)
+	return initPushWithOptions(context.Background(), pushURL, interval, writeMetrics, opts)
 }
 
-func initPushWithOptions(pushURL string, interval time.Duration, writeMetrics func(w io.Writer), opts *PushOptions) error {
+func initPushWithOptions(ctx context.Context, pushURL string, interval time.Duration, writeMetrics func(w io.Writer), opts *PushOptions) error {
 	// validate pushURL
 	pu, err := url.Parse(pushURL)
 	if err != nil {
@@ -183,7 +189,7 @@ func initPushWithOptions(pushURL string, interval time.Duration, writeMetrics fu
 	}
 
 	// validate Headers
-	var headers http.Header
+	headers := make(http.Header)
 	if opts != nil {
 		for _, h := range opts.Headers {
 			n := strings.IndexByte(h, ':')
@@ -219,7 +225,14 @@ func initPushWithOptions(pushURL string, interval time.Duration, writeMetrics fu
 		var bb bytes.Buffer
 		var tmpBuf []byte
 		zw := gzip.NewWriter(&bb)
-		for range ticker.C {
+		stopCh := ctx.Done()
+		for {
+			select {
+			case <-ticker.C:
+			case <-stopCh:
+				return
+			}
+
 			bb.Reset()
 			writeMetrics(&bb)
 			if len(extraLabels) > 0 {
@@ -244,7 +257,7 @@ func initPushWithOptions(pushURL string, interval time.Duration, writeMetrics fu
 			blockLen := bb.Len()
 			bytesPushedTotal.Add(blockLen)
 			pushBlockSize.Update(float64(blockLen))
-			req, err := http.NewRequest("GET", pushURL, &bb)
+			req, err := http.NewRequestWithContext(ctx, "GET", pushURL, &bb)
 			if err != nil {
 				panic(fmt.Errorf("BUG: metrics.push: cannot initialize request for metrics push to %q: %w", pushURLRedacted, err))
 			}
@@ -266,8 +279,10 @@ func initPushWithOptions(pushURL string, interval time.Duration, writeMetrics fu
 			resp, err := c.Do(req)
 			pushDuration.UpdateDuration(startTime)
 			if err != nil {
-				log.Printf("ERROR: metrics.push: cannot push metrics to %q: %s", pushURLRedacted, err)
-				pushErrorsTotal.Inc()
+				if !errors.Is(err, context.Canceled) {
+					log.Printf("ERROR: metrics.push: cannot push metrics to %q: %s", pushURLRedacted, err)
+					pushErrorsTotal.Inc()
+				}
 				continue
 			}
 			if resp.StatusCode/100 != 2 {
