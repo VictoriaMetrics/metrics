@@ -119,10 +119,8 @@ func (sm *Summary) marshalTo(prefix string, w io.Writer) {
 	}
 }
 
-// marshalMeta marshals sm meta info with the given prefix to w.
-func (sm *Summary) marshalMeta(prefix string, w io.Writer) {
-	fmt.Fprintf(w, "# HELP %s\n", prefix)
-	fmt.Fprintf(w, "# TYPE %s summary\n", prefix)
+func (sm *Summary) metricType() string {
+	return "summary"
 }
 
 func splitMetricName(name string) (string, string) {
@@ -202,7 +200,9 @@ func (qv *quantileValue) marshalTo(prefix string, w io.Writer) {
 	}
 }
 
-func (qv *quantileValue) marshalMeta(string, io.Writer) {}
+func (qv *quantileValue) metricType() string {
+	return "unsupported"
+}
 
 func addTag(name, tag string) string {
 	if len(name) == 0 || name[len(name)-1] != '}' {

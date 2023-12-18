@@ -58,10 +58,8 @@ func (c *Counter) marshalTo(prefix string, w io.Writer) {
 	fmt.Fprintf(w, "%s %d\n", prefix, v)
 }
 
-// marshalMeta marshals c meta info with the given prefix to w.
-func (c *Counter) marshalMeta(prefix string, w io.Writer) {
-	fmt.Fprintf(w, "# HELP %s\n", prefix)
-	fmt.Fprintf(w, "# TYPE %s counter\n", prefix)
+func (c *Counter) metricType() string {
+	return "counter"
 }
 
 // GetOrCreateCounter returns registered counter with the given name

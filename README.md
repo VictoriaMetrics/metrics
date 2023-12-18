@@ -74,13 +74,10 @@ metrics.InitPush("http://victoria-metrics:8428/api/v1/import/prometheus", 10*tim
 ```
 
 By default, exposed metrics [do not have](https://github.com/VictoriaMetrics/metrics/issues/48#issuecomment-1620765811)
-`TYPE` or `HELP` meta information. To enable meta information in exposition format use 
-[ExposeMetadata](https://pkg.go.dev/github.com/VictoriaMetrics/metrics#ExposeMetadata) function. 
-Please note, meta information is ignored by [VictoriaMetrics](https://docs.victoriametrics.com/) and 
-[vmagent](https://docs.victoriametrics.com/vmagent.html) on scrape or ingest.
+`TYPE` or `HELP` meta information. Call [`ExposeMetadata(true)`](https://pkg.go.dev/github.com/VictoriaMetrics/metrics#ExposeMetadata)
+in order to generate `TYPE` and `HELP` meta information per each metric.
 
-See [docs](http://godoc.org/github.com/VictoriaMetrics/metrics) for more info.
-
+See [docs](https://pkg.go.dev/github.com/VictoriaMetrics/metrics) for more info.
 
 ### Users
 

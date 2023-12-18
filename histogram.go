@@ -229,8 +229,6 @@ func (h *Histogram) getSum() float64 {
 	return sum
 }
 
-// marshalMeta marshals h meta info with the given prefix to w.
-func (h *Histogram) marshalMeta(prefix string, w io.Writer) {
-	fmt.Fprintf(w, "# HELP %s\n", prefix)
-	fmt.Fprintf(w, "# TYPE %s histogram\n", prefix)
+func (h *Histogram) metricType() string {
+	return "histogram"
 }

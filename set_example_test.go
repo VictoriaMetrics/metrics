@@ -26,11 +26,8 @@ func ExampleSet() {
 
 func ExampleExposeMetadata() {
 	metrics.ExposeMetadata(true)
-	defer func() {
-		metrics.ExposeMetadata(false)
-	}()
+	defer metrics.ExposeMetadata(false)
 
-	// Create a set with a counter
 	s := metrics.NewSet()
 
 	sc := s.NewCounter("set_counter")

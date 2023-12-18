@@ -15,20 +15,28 @@ package metrics
 import (
 	"io"
 	"sort"
+	"strings"
 	"sync"
 	"unsafe"
 )
 
 type namedMetric struct {
 	name   string
-	family string
 	metric metric
 	isAux  bool
 }
 
+func (nm *namedMetric) family() string {
+	n := strings.IndexByte(nm.name, '{')
+	if n < 0 {
+		return nm.name
+	}
+	return nm.name[:n]
+}
+
 type metric interface {
 	marshalTo(prefix string, w io.Writer)
-	marshalMeta(prefix string, w io.Writer)
+	metricType() string
 }
 
 var defaultSet = NewSet()
@@ -249,7 +257,8 @@ var (
 	exposeMetadataLock sync.Mutex
 )
 
-// ExposeMetadata allows enabling adding TYPE and HELP metadata to the exposed metrics globally, for all Set.
+// ExposeMetadata allows enabling adding TYPE and HELP metadata to the exposed metrics globally.
+//
 // It is safe to call this method multiple times. It is allowed to change it in runtime.
 // ExposeMetadata is set to false by default.
 func ExposeMetadata(v bool) {
