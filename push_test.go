@@ -89,6 +89,7 @@ func TestInitPushWithOptions(t *testing.T) {
 				firstRequest = false
 			}
 		}))
+		defer srv.Close()
 		ctx, cancel := context.WithCancel(context.Background())
 		if err := s.InitPushWithOptions(ctx, srv.URL, time.Millisecond, opts); err != nil {
 			t.Fatalf("unexpected error: %s", err)
