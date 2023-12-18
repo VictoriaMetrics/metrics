@@ -71,9 +71,6 @@ http.HandleFunc("/metrics", func(w http.ResponseWriter, req *http.Request) {
 // ... or push registered metrics every 10 seconds to http://victoria-metrics:8428/api/v1/import/prometheus
 // with the added `instance="foobar"` label to all the pushed metrics.
 metrics.InitPush("http://victoria-metrics:8428/api/v1/import/prometheus", 10*time.Second, `instance="foobar"`, true)
-
-// ... or use metrics.PushConfig to see full list of configuration params
-// metrics.InitPushWithConfig(metrics.PushConfig{URL: "http://victoria-metrics:8428/api/v1/import/prometheus", Interval: 10*time.Second})
 ```
 
 By default, exposed metrics [do not have](https://github.com/VictoriaMetrics/metrics/issues/48#issuecomment-1620765811)
