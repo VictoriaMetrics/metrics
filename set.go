@@ -47,12 +47,28 @@ func (s *Set) WritePrometheus(w io.Writer) {
 	sa := append([]*namedMetric(nil), s.a...)
 	s.mu.Unlock()
 
-	// Call marshalTo without the global lock, since certain metric types such as Gauge
-	// can call a callback, which, in turn, can try calling s.mu.Lock again.
+	prevMetricFamily := ""
 	for _, nm := range sa {
+		metricFamily := nm.family()
+		if metricFamily != prevMetricFamily {
+			// write meta info only once per metric family
+			metricType := nm.metric.metricType()
+			writeMetadataIfNeeded(&bb, metricFamily, metricType)
+			prevMetricFamily = metricFamily
+		}
+		// Call marshalTo without the global lock, since certain metric types such as Gauge
+		// can call a callback, which, in turn, can try calling s.mu.Lock again.
 		nm.metric.marshalTo(nm.name, &bb)
 	}
 	w.Write(bb.Bytes())
+}
+
+func writeMetadataIfNeeded(w io.Writer, metricFamily, metricType string) {
+	if !isMetadataEnabled() {
+		return
+	}
+	fmt.Fprintf(w, "# HELP %s\n", metricFamily)
+	fmt.Fprintf(w, "# TYPE %s %s\n", metricFamily, metricType)
 }
 
 // NewHistogram creates and returns new histogram in s with the given name.
