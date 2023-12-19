@@ -8,6 +8,81 @@ import (
 	"time"
 )
 
+func TestWriteMetrics(t *testing.T) {
+	t.Run("gauge_uint64", func(t *testing.T) {
+		var bb bytes.Buffer
+
+		WriteGaugeUint64(&bb, "foo", 123)
+		sExpected := "foo 123\n"
+		if s := bb.String(); s != sExpected {
+			t.Fatalf("unexpected value; got\n%s\nwant\n%s", s, sExpected)
+		}
+
+		ExposeMetadata(true)
+		bb.Reset()
+		WriteGaugeUint64(&bb, "foo", 123)
+		sExpected = "# HELP foo\n# TYPE foo gauge\nfoo 123\n"
+		ExposeMetadata(false)
+		if s := bb.String(); s != sExpected {
+			t.Fatalf("unexpected value; got\n%s\nwant\n%s", s, sExpected)
+		}
+	})
+	t.Run("gauge_float64", func(t *testing.T) {
+		var bb bytes.Buffer
+
+		WriteGaugeFloat64(&bb, "foo", 1.23)
+		sExpected := "foo 1.23\n"
+		if s := bb.String(); s != sExpected {
+			t.Fatalf("unexpected value; got\n%s\nwant\n%s", s, sExpected)
+		}
+
+		ExposeMetadata(true)
+		bb.Reset()
+		WriteGaugeFloat64(&bb, "foo", 1.23)
+		sExpected = "# HELP foo\n# TYPE foo gauge\nfoo 1.23\n"
+		ExposeMetadata(false)
+		if s := bb.String(); s != sExpected {
+			t.Fatalf("unexpected value; got\n%s\nwant\n%s", s, sExpected)
+		}
+	})
+	t.Run("counter_uint64", func(t *testing.T) {
+		var bb bytes.Buffer
+
+		WriteCounterUint64(&bb, "foo_total", 123)
+		sExpected := "foo_total 123\n"
+		if s := bb.String(); s != sExpected {
+			t.Fatalf("unexpected value; got\n%s\nwant\n%s", s, sExpected)
+		}
+
+		ExposeMetadata(true)
+		bb.Reset()
+		WriteCounterUint64(&bb, "foo_total", 123)
+		sExpected = "# HELP foo_total\n# TYPE foo_total counter\nfoo_total 123\n"
+		ExposeMetadata(false)
+		if s := bb.String(); s != sExpected {
+			t.Fatalf("unexpected value; got\n%s\nwant\n%s", s, sExpected)
+		}
+	})
+	t.Run("counter_float64", func(t *testing.T) {
+		var bb bytes.Buffer
+
+		WriteCounterFloat64(&bb, "foo_total", 1.23)
+		sExpected := "foo_total 1.23\n"
+		if s := bb.String(); s != sExpected {
+			t.Fatalf("unexpected value; got\n%s\nwant\n%s", s, sExpected)
+		}
+
+		ExposeMetadata(true)
+		bb.Reset()
+		WriteCounterFloat64(&bb, "foo_total", 1.23)
+		sExpected = "# HELP foo_total\n# TYPE foo_total counter\nfoo_total 1.23\n"
+		ExposeMetadata(false)
+		if s := bb.String(); s != sExpected {
+			t.Fatalf("unexpected value; got\n%s\nwant\n%s", s, sExpected)
+		}
+	})
+}
+
 func TestGetDefaultSet(t *testing.T) {
 	s := GetDefaultSet()
 	if s != defaultSet {

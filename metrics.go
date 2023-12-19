@@ -277,22 +277,22 @@ func isCounterName(name string) bool {
 	return strings.HasSuffix(name, "_total")
 }
 
-// WriteGaugeUint64 writes gauge metric with the given name and value to w.
+// WriteGaugeUint64 writes gauge metric with the given name and value to w in Prometheus text exposition format.
 func WriteGaugeUint64(w io.Writer, name string, value uint64) {
 	writeMetricUint64(w, name, "gauge", value)
 }
 
-// WriteGaugeFloat64 writes gauge metric with the given name and value to w.
+// WriteGaugeFloat64 writes gauge metric with the given name and value to w in Prometheus text exposition format.
 func WriteGaugeFloat64(w io.Writer, name string, value float64) {
 	writeMetricFloat64(w, name, "gauge", value)
 }
 
-// WriteCounterUint64 writes counter metric with the given name and value to w.
+// WriteCounterUint64 writes counter metric with the given name and value to w in Prometheus text exposition format.
 func WriteCounterUint64(w io.Writer, name string, value uint64) {
 	writeMetricUint64(w, name, "counter", value)
 }
 
-// WriteCounterFloat64 writes counter metric with the given name and value to w.
+// WriteCounterFloat64 writes counter metric with the given name and value to w in Prometheus text exposition format.
 func WriteCounterFloat64(w io.Writer, name string, value float64) {
 	writeMetricFloat64(w, name, "counter", value)
 }
