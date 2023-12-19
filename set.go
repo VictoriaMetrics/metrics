@@ -47,17 +47,14 @@ func (s *Set) WritePrometheus(w io.Writer) {
 	sa := append([]*namedMetric(nil), s.a...)
 	s.mu.Unlock()
 
-	writeMetadata := isMetadataEnabled()
 	prevMetricFamily := ""
 	for _, nm := range sa {
-		if writeMetadata {
-			metricFamily := nm.family()
-			if metricFamily != prevMetricFamily {
-				// write meta info only once per metric family
-				metricType := nm.metric.metricType()
-				marshalMeta(metricFamily, metricType, &bb)
-				prevMetricFamily = metricFamily
-			}
+		metricFamily := nm.family()
+		if metricFamily != prevMetricFamily {
+			// write meta info only once per metric family
+			metricType := nm.metric.metricType()
+			writeMetadataIfNeeded(&bb, metricFamily, metricType)
+			prevMetricFamily = metricFamily
 		}
 		// Call marshalTo without the global lock, since certain metric types such as Gauge
 		// can call a callback, which, in turn, can try calling s.mu.Lock again.
@@ -66,9 +63,12 @@ func (s *Set) WritePrometheus(w io.Writer) {
 	w.Write(bb.Bytes())
 }
 
-func marshalMeta(family, typ string, w io.Writer) {
-	fmt.Fprintf(w, "# HELP %s\n", family)
-	fmt.Fprintf(w, "# TYPE %s %s\n", family, typ)
+func writeMetadataIfNeeded(w io.Writer, metricFamily, metricType string) {
+	if !isMetadataEnabled() {
+		return
+	}
+	fmt.Fprintf(w, "# HELP %s\n", metricFamily)
+	fmt.Fprintf(w, "# TYPE %s %s\n", metricFamily, metricType)
 }
 
 // NewHistogram creates and returns new histogram in s with the given name.

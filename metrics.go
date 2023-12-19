@@ -13,10 +13,12 @@
 package metrics
 
 import (
+	"fmt"
 	"io"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"unsafe"
 )
 
@@ -252,23 +254,51 @@ func GetDefaultSet() *Set {
 	return defaultSet
 }
 
-var (
-	exposeMetadata     bool
-	exposeMetadataLock sync.Mutex
-)
-
 // ExposeMetadata allows enabling adding TYPE and HELP metadata to the exposed metrics globally.
 //
 // It is safe to call this method multiple times. It is allowed to change it in runtime.
 // ExposeMetadata is set to false by default.
 func ExposeMetadata(v bool) {
-	exposeMetadataLock.Lock()
-	exposeMetadata = v
-	exposeMetadataLock.Unlock()
+	n := 0
+	if v {
+		n = 1
+	}
+	atomic.StoreUint32(&exposeMetadata, uint32(n))
 }
 
 func isMetadataEnabled() bool {
-	exposeMetadataLock.Lock()
-	defer exposeMetadataLock.Unlock()
-	return exposeMetadata
+	n := atomic.LoadUint32(&exposeMetadata)
+	return n != 0
+}
+
+var exposeMetadata uint32
+
+func isCounterName(name string) bool {
+	return strings.HasSuffix(name, "_total")
+}
+
+func writeGaugeUint64(w io.Writer, metricName string, value uint64) {
+	writeMetricUint64(w, metricName, "gauge", value)
+}
+
+func writeGaugeFloat64(w io.Writer, metricName string, value float64) {
+	writeMetricFloat64(w, metricName, "gauge", value)
+}
+
+func writeCounterUint64(w io.Writer, metricName string, value uint64) {
+	writeMetricUint64(w, metricName, "counter", value)
+}
+
+func writeCounterFloat64(w io.Writer, metricName string, value float64) {
+	writeMetricFloat64(w, metricName, "counter", value)
+}
+
+func writeMetricUint64(w io.Writer, metricName, metricType string, value uint64) {
+	writeMetadataIfNeeded(w, metricName, metricType)
+	fmt.Fprintf(w, "%s %d\n", metricName, value)
+}
+
+func writeMetricFloat64(w io.Writer, metricName, metricType string, value float64) {
+	writeMetadataIfNeeded(w, metricName, metricType)
+	fmt.Fprintf(w, "%s %g\n", metricName, value)
 }

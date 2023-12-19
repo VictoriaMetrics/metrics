@@ -74,15 +74,15 @@ func writeProcessMetrics(w io.Writer) {
 
 	utime := float64(p.Utime) / userHZ
 	stime := float64(p.Stime) / userHZ
-	fmt.Fprintf(w, "process_cpu_seconds_system_total %g\n", stime)
-	fmt.Fprintf(w, "process_cpu_seconds_total %g\n", utime+stime)
-	fmt.Fprintf(w, "process_cpu_seconds_user_total %g\n", utime)
-	fmt.Fprintf(w, "process_major_pagefaults_total %d\n", p.Majflt)
-	fmt.Fprintf(w, "process_minor_pagefaults_total %d\n", p.Minflt)
-	fmt.Fprintf(w, "process_num_threads %d\n", p.NumThreads)
-	fmt.Fprintf(w, "process_resident_memory_bytes %d\n", p.Rss*4096)
-	fmt.Fprintf(w, "process_start_time_seconds %d\n", startTimeSeconds)
-	fmt.Fprintf(w, "process_virtual_memory_bytes %d\n", p.Vsize)
+	writeCounterFloat64(w, "process_cpu_seconds_system_total", stime)
+	writeCounterFloat64(w, "process_cpu_seconds_total", utime+stime)
+	writeCounterFloat64(w, "process_cpu_seconds_user_total", utime)
+	writeCounterUint64(w, "process_major_pagefaults_total", uint64(p.Majflt))
+	writeCounterUint64(w, "process_minor_pagefaults_total", uint64(p.Minflt))
+	writeGaugeUint64(w, "process_num_threads", uint64(p.NumThreads))
+	writeGaugeUint64(w, "process_resident_memory_bytes", uint64(p.Rss)*4096)
+	writeGaugeUint64(w, "process_start_time_seconds", uint64(startTimeSeconds))
+	writeGaugeUint64(w, "process_virtual_memory_bytes", uint64(p.Vsize))
 	writeProcessMemMetrics(w)
 	writeIOMetrics(w)
 }
@@ -133,12 +133,12 @@ func writeIOMetrics(w io.Writer) {
 			writeBytes = getInt(s)
 		}
 	}
-	fmt.Fprintf(w, "process_io_read_bytes_total %d\n", rchar)
-	fmt.Fprintf(w, "process_io_written_bytes_total %d\n", wchar)
-	fmt.Fprintf(w, "process_io_read_syscalls_total %d\n", syscr)
-	fmt.Fprintf(w, "process_io_write_syscalls_total %d\n", syscw)
-	fmt.Fprintf(w, "process_io_storage_read_bytes_total %d\n", readBytes)
-	fmt.Fprintf(w, "process_io_storage_written_bytes_total %d\n", writeBytes)
+	writeGaugeUint64(w, "process_io_read_bytes_total", uint64(rchar))
+	writeGaugeUint64(w, "process_io_written_bytes_total", uint64(wchar))
+	writeGaugeUint64(w, "process_io_read_syscalls_total", uint64(syscr))
+	writeGaugeUint64(w, "process_io_write_syscalls_total", uint64(syscw))
+	writeGaugeUint64(w, "process_io_storage_read_bytes_total", uint64(readBytes))
+	writeGaugeUint64(w, "process_io_storage_written_bytes_total", uint64(writeBytes))
 }
 
 var startTimeSeconds = time.Now().Unix()
@@ -155,8 +155,8 @@ func writeFDMetrics(w io.Writer) {
 		log.Printf("ERROR: metrics: cannot determine the limit on open file descritors: %s", err)
 		return
 	}
-	fmt.Fprintf(w, "process_max_fds %d\n", maxOpenFDs)
-	fmt.Fprintf(w, "process_open_fds %d\n", totalOpenFDs)
+	writeGaugeUint64(w, "process_max_fds", maxOpenFDs)
+	writeGaugeUint64(w, "process_open_fds", totalOpenFDs)
 }
 
 func getOpenFDsCount(path string) (uint64, error) {
@@ -224,11 +224,11 @@ func writeProcessMemMetrics(w io.Writer) {
 		log.Printf("ERROR: metrics: cannot determine memory status: %s", err)
 		return
 	}
-	fmt.Fprintf(w, "process_virtual_memory_peak_bytes %d\n", ms.vmPeak)
-	fmt.Fprintf(w, "process_resident_memory_peak_bytes %d\n", ms.rssPeak)
-	fmt.Fprintf(w, "process_resident_memory_anon_bytes %d\n", ms.rssAnon)
-	fmt.Fprintf(w, "process_resident_memory_file_bytes %d\n", ms.rssFile)
-	fmt.Fprintf(w, "process_resident_memory_shared_bytes %d\n", ms.rssShmem)
+	writeGaugeUint64(w, "process_virtual_memory_peak_bytes", ms.vmPeak)
+	writeGaugeUint64(w, "process_resident_memory_peak_bytes", ms.rssPeak)
+	writeGaugeUint64(w, "process_resident_memory_anon_bytes", ms.rssAnon)
+	writeGaugeUint64(w, "process_resident_memory_file_bytes", ms.rssFile)
+	writeGaugeUint64(w, "process_resident_memory_shared_bytes", ms.rssShmem)
 
 }
 
