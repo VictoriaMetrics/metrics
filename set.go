@@ -53,7 +53,7 @@ func (s *Set) WritePrometheus(w io.Writer) {
 		if metricFamily != prevMetricFamily {
 			// write meta info only once per metric family
 			metricType := nm.metric.metricType()
-			writeMetadataIfNeeded(&bb, nm.name, metricType)
+			WriteMetadataIfNeeded(&bb, nm.name, metricType)
 			prevMetricFamily = metricFamily
 		}
 		// Call marshalTo without the global lock, since certain metric types such as Gauge

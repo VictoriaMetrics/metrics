@@ -290,16 +290,19 @@ func WriteCounterFloat64(w io.Writer, name string, value float64) {
 }
 
 func writeMetricUint64(w io.Writer, metricName, metricType string, value uint64) {
-	writeMetadataIfNeeded(w, metricName, metricType)
+	WriteMetadataIfNeeded(w, metricName, metricType)
 	fmt.Fprintf(w, "%s %d\n", metricName, value)
 }
 
 func writeMetricFloat64(w io.Writer, metricName, metricType string, value float64) {
-	writeMetadataIfNeeded(w, metricName, metricType)
+	WriteMetadataIfNeeded(w, metricName, metricType)
 	fmt.Fprintf(w, "%s %g\n", metricName, value)
 }
 
-func writeMetadataIfNeeded(w io.Writer, metricName, metricType string) {
+// WriteMetadataIfNeeded writes HELP and TYPE metadata for the given metricName and metricType if this is globally enabled via ExposeMetadata().
+//
+// If the metadata exposition isn't enabled, then this function is no-op.
+func WriteMetadataIfNeeded(w io.Writer, metricName, metricType string) {
 	if !isMetadataEnabled() {
 		return
 	}
