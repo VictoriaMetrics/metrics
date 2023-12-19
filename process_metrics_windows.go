@@ -56,14 +56,14 @@ func writeProcessMetrics(w io.Writer) {
 	}
 	stimeSeconds := float64(uint64(stime.HighDateTime)<<32+uint64(stime.LowDateTime)) / 1e7
 	utimeSeconds := float64(uint64(utime.HighDateTime)<<32+uint64(utime.LowDateTime)) / 1e7
-	writeCounterFloat64(w, "process_cpu_seconds_system_total", stimeSeconds)
-	writeCounterFloat64(w, "process_cpu_seconds_total", stimeSeconds+utimeSeconds)
-	writeCounterFloat64(w, "process_cpu_seconds_user_total", stimeSeconds)
-	writeCounterUint64(w, "process_pagefaults_total", uint64(mc.PageFaultCount))
-	writeGaugeUint64(w, "process_start_time_seconds", uint64(startTime.Nanoseconds())/1e9)
-	writeGaugeUint64(w, "process_virtual_memory_bytes", uint64(mc.PrivateUsage))
-	writeGaugeUint64(w, "process_resident_memory_peak_bytes", uint64(mc.PeakWorkingSetSize))
-	writeGaugeUint64(w, "process_resident_memory_bytes", uint64(mc.WorkingSetSize))
+	WriteCounterFloat64(w, "process_cpu_seconds_system_total", stimeSeconds)
+	WriteCounterFloat64(w, "process_cpu_seconds_total", stimeSeconds+utimeSeconds)
+	WriteCounterFloat64(w, "process_cpu_seconds_user_total", stimeSeconds)
+	WriteCounterUint64(w, "process_pagefaults_total", uint64(mc.PageFaultCount))
+	WriteGaugeUint64(w, "process_start_time_seconds", uint64(startTime.Nanoseconds())/1e9)
+	WriteGaugeUint64(w, "process_virtual_memory_bytes", uint64(mc.PrivateUsage))
+	WriteGaugeUint64(w, "process_resident_memory_peak_bytes", uint64(mc.PeakWorkingSetSize))
+	WriteGaugeUint64(w, "process_resident_memory_bytes", uint64(mc.WorkingSetSize))
 }
 
 func writeFDMetrics(w io.Writer) {
@@ -79,6 +79,6 @@ func writeFDMetrics(w io.Writer) {
 	}
 	// it seems to be hard-coded limit for 64-bit systems
 	// https://learn.microsoft.com/en-us/archive/blogs/markrussinovich/pushing-the-limits-of-windows-handles#maximum-number-of-handles
-	writeGaugeUint64(w, "process_max_fds", 16777216)
-	writeGaugeUint64(w, "process_open_fds", uint64(count))
+	WriteGaugeUint64(w, "process_max_fds", 16777216)
+	WriteGaugeUint64(w, "process_open_fds", uint64(count))
 }

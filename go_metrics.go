@@ -47,34 +47,34 @@ func writeGoMetrics(w io.Writer) {
 
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
-	writeGaugeUint64(w, "go_memstats_alloc_bytes", ms.Alloc)
-	writeCounterUint64(w, "go_memstats_alloc_bytes_total", ms.TotalAlloc)
-	writeGaugeUint64(w, "go_memstats_buck_hash_sys_bytes", ms.BuckHashSys)
-	writeCounterUint64(w, "go_memstats_frees_total", ms.Frees)
-	writeGaugeFloat64(w, "go_memstats_gc_cpu_fraction", ms.GCCPUFraction)
-	writeGaugeUint64(w, "go_memstats_gc_sys_bytes", ms.GCSys)
+	WriteGaugeUint64(w, "go_memstats_alloc_bytes", ms.Alloc)
+	WriteCounterUint64(w, "go_memstats_alloc_bytes_total", ms.TotalAlloc)
+	WriteGaugeUint64(w, "go_memstats_buck_hash_sys_bytes", ms.BuckHashSys)
+	WriteCounterUint64(w, "go_memstats_frees_total", ms.Frees)
+	WriteGaugeFloat64(w, "go_memstats_gc_cpu_fraction", ms.GCCPUFraction)
+	WriteGaugeUint64(w, "go_memstats_gc_sys_bytes", ms.GCSys)
 
-	writeGaugeUint64(w, "go_memstats_heap_alloc_bytes", ms.HeapAlloc)
-	writeGaugeUint64(w, "go_memstats_heap_idle_bytes", ms.HeapIdle)
-	writeGaugeUint64(w, "go_memstats_heap_inuse_bytes", ms.HeapInuse)
-	writeGaugeUint64(w, "go_memstats_heap_objects", ms.HeapObjects)
-	writeGaugeUint64(w, "go_memstats_heap_released_bytes", ms.HeapReleased)
-	writeGaugeUint64(w, "go_memstats_heap_sys_bytes", ms.HeapSys)
-	writeGaugeFloat64(w, "go_memstats_last_gc_time_seconds", float64(ms.LastGC)/1e9)
-	writeCounterUint64(w, "go_memstats_lookups_total", ms.Lookups)
-	writeCounterUint64(w, "go_memstats_mallocs_total", ms.Mallocs)
-	writeGaugeUint64(w, "go_memstats_mcache_inuse_bytes", ms.MCacheInuse)
-	writeGaugeUint64(w, "go_memstats_mcache_sys_bytes", ms.MCacheSys)
-	writeGaugeUint64(w, "go_memstats_mspan_inuse_bytes", ms.MSpanInuse)
-	writeGaugeUint64(w, "go_memstats_mspan_sys_bytes", ms.MSpanSys)
-	writeGaugeUint64(w, "go_memstats_next_gc_bytes", ms.NextGC)
-	writeGaugeUint64(w, "go_memstats_other_sys_bytes", ms.OtherSys)
-	writeGaugeUint64(w, "go_memstats_stack_inuse_bytes", ms.StackInuse)
-	writeGaugeUint64(w, "go_memstats_stack_sys_bytes", ms.StackSys)
-	writeGaugeUint64(w, "go_memstats_sys_bytes", ms.Sys)
+	WriteGaugeUint64(w, "go_memstats_heap_alloc_bytes", ms.HeapAlloc)
+	WriteGaugeUint64(w, "go_memstats_heap_idle_bytes", ms.HeapIdle)
+	WriteGaugeUint64(w, "go_memstats_heap_inuse_bytes", ms.HeapInuse)
+	WriteGaugeUint64(w, "go_memstats_heap_objects", ms.HeapObjects)
+	WriteGaugeUint64(w, "go_memstats_heap_released_bytes", ms.HeapReleased)
+	WriteGaugeUint64(w, "go_memstats_heap_sys_bytes", ms.HeapSys)
+	WriteGaugeFloat64(w, "go_memstats_last_gc_time_seconds", float64(ms.LastGC)/1e9)
+	WriteCounterUint64(w, "go_memstats_lookups_total", ms.Lookups)
+	WriteCounterUint64(w, "go_memstats_mallocs_total", ms.Mallocs)
+	WriteGaugeUint64(w, "go_memstats_mcache_inuse_bytes", ms.MCacheInuse)
+	WriteGaugeUint64(w, "go_memstats_mcache_sys_bytes", ms.MCacheSys)
+	WriteGaugeUint64(w, "go_memstats_mspan_inuse_bytes", ms.MSpanInuse)
+	WriteGaugeUint64(w, "go_memstats_mspan_sys_bytes", ms.MSpanSys)
+	WriteGaugeUint64(w, "go_memstats_next_gc_bytes", ms.NextGC)
+	WriteGaugeUint64(w, "go_memstats_other_sys_bytes", ms.OtherSys)
+	WriteGaugeUint64(w, "go_memstats_stack_inuse_bytes", ms.StackInuse)
+	WriteGaugeUint64(w, "go_memstats_stack_sys_bytes", ms.StackSys)
+	WriteGaugeUint64(w, "go_memstats_sys_bytes", ms.Sys)
 
-	writeCounterUint64(w, "go_cgo_calls_count", uint64(runtime.NumCgoCall()))
-	writeGaugeUint64(w, "go_cpu_count", uint64(runtime.NumCPU()))
+	WriteCounterUint64(w, "go_cgo_calls_count", uint64(runtime.NumCgoCall()))
+	WriteGaugeUint64(w, "go_cpu_count", uint64(runtime.NumCPU()))
 
 	gcPauses := histogram.NewFast()
 	for _, pauseNs := range ms.PauseNs[:] {
@@ -89,12 +89,12 @@ func writeGoMetrics(w io.Writer) {
 	fmt.Fprintf(w, "go_gc_duration_seconds_sum %g\n", float64(ms.PauseTotalNs)/1e9)
 	fmt.Fprintf(w, "go_gc_duration_seconds_count %d\n", ms.NumGC)
 
-	writeCounterUint64(w, "go_gc_forced_count", uint64(ms.NumForcedGC))
+	WriteCounterUint64(w, "go_gc_forced_count", uint64(ms.NumForcedGC))
 
-	writeGaugeUint64(w, "go_gomaxprocs", uint64(runtime.GOMAXPROCS(0)))
-	writeGaugeUint64(w, "go_goroutines", uint64(runtime.NumGoroutine()))
+	WriteGaugeUint64(w, "go_gomaxprocs", uint64(runtime.GOMAXPROCS(0)))
+	WriteGaugeUint64(w, "go_goroutines", uint64(runtime.NumGoroutine()))
 	numThread, _ := runtime.ThreadCreateProfile(nil)
-	writeGaugeUint64(w, "go_threads", uint64(numThread))
+	WriteGaugeUint64(w, "go_threads", uint64(numThread))
 
 	// Export build details.
 	writeMetadataIfNeeded(w, "go_info", "gauge")
@@ -124,16 +124,16 @@ func writeRuntimeMetric(w io.Writer, name string, sample *runtimemetrics.Sample)
 	case runtimemetrics.KindUint64:
 		v := sample.Value.Uint64()
 		if strings.HasSuffix(name, "_total") {
-			writeCounterUint64(w, name, v)
+			WriteCounterUint64(w, name, v)
 		} else {
-			writeGaugeUint64(w, name, v)
+			WriteGaugeUint64(w, name, v)
 		}
 	case runtimemetrics.KindFloat64:
 		v := sample.Value.Float64()
 		if isCounterName(name) {
-			writeCounterFloat64(w, name, v)
+			WriteCounterFloat64(w, name, v)
 		} else {
-			writeGaugeFloat64(w, name, v)
+			WriteGaugeFloat64(w, name, v)
 		}
 	case runtimemetrics.KindFloat64Histogram:
 		h := sample.Value.Float64Histogram()

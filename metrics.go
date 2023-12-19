@@ -277,20 +277,24 @@ func isCounterName(name string) bool {
 	return strings.HasSuffix(name, "_total")
 }
 
-func writeGaugeUint64(w io.Writer, metricName string, value uint64) {
-	writeMetricUint64(w, metricName, "gauge", value)
+// WriteGaugeUint64 writes gauge metric with the given name and value to w.
+func WriteGaugeUint64(w io.Writer, name string, value uint64) {
+	writeMetricUint64(w, name, "gauge", value)
 }
 
-func writeGaugeFloat64(w io.Writer, metricName string, value float64) {
-	writeMetricFloat64(w, metricName, "gauge", value)
+// WriteGaugeFloat64 writes gauge metric with the given name and value to w.
+func WriteGaugeFloat64(w io.Writer, name string, value float64) {
+	writeMetricFloat64(w, name, "gauge", value)
 }
 
-func writeCounterUint64(w io.Writer, metricName string, value uint64) {
-	writeMetricUint64(w, metricName, "counter", value)
+// WriteCounterUint64 writes counter metric with the given name and value to w.
+func WriteCounterUint64(w io.Writer, name string, value uint64) {
+	writeMetricUint64(w, name, "counter", value)
 }
 
-func writeCounterFloat64(w io.Writer, metricName string, value float64) {
-	writeMetricFloat64(w, metricName, "counter", value)
+// WriteCounterFloat64 writes counter metric with the given name and value to w.
+func WriteCounterFloat64(w io.Writer, name string, value float64) {
+	writeMetricFloat64(w, name, "counter", value)
 }
 
 func writeMetricUint64(w io.Writer, metricName, metricType string, value uint64) {
