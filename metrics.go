@@ -28,14 +28,6 @@ type namedMetric struct {
 	isAux  bool
 }
 
-func (nm *namedMetric) family() string {
-	n := strings.IndexByte(nm.name, '{')
-	if n < 0 {
-		return nm.name
-	}
-	return nm.name[:n]
-}
-
 type metric interface {
 	marshalTo(prefix string, w io.Writer)
 	metricType() string
@@ -305,4 +297,21 @@ func writeMetricUint64(w io.Writer, metricName, metricType string, value uint64)
 func writeMetricFloat64(w io.Writer, metricName, metricType string, value float64) {
 	writeMetadataIfNeeded(w, metricName, metricType)
 	fmt.Fprintf(w, "%s %g\n", metricName, value)
+}
+
+func writeMetadataIfNeeded(w io.Writer, metricName, metricType string) {
+	if !isMetadataEnabled() {
+		return
+	}
+	metricFamily := getMetricFamily(metricName)
+	fmt.Fprintf(w, "# HELP %s\n", metricFamily)
+	fmt.Fprintf(w, "# TYPE %s %s\n", metricFamily, metricType)
+}
+
+func getMetricFamily(metricName string) string {
+	n := strings.IndexByte(metricName, '{')
+	if n < 0 {
+		return metricName
+	}
+	return metricName[:n]
 }
