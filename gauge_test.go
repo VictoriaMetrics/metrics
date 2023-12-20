@@ -7,12 +7,26 @@ import (
 )
 
 func TestGaugeError(t *testing.T) {
-	expectPanic(t, "NewGauge_nil_callback", func() {
-		NewGauge("NewGauge_nil_callback", nil)
+	expectPanic(t, "NewGauge_Set_non-nil-callback", func() {
+		g := NewGauge("NewGauge_non_nil_callback", func() float64 { return 123 })
+		g.Set(12.35)
 	})
-	expectPanic(t, "GetOrCreateGauge_nil_callback", func() {
-		GetOrCreateGauge("GetOrCreateGauge_nil_callback", nil)
+	expectPanic(t, "GetOrCreateGauge_Set_non-nil-callback", func() {
+		g := GetOrCreateGauge("GetOrCreateGauge_nil_callback", func() float64 { return 123 })
+		g.Set(42)
 	})
+}
+
+func TestGaugeSet(t *testing.T) {
+	s := NewSet()
+	g := s.NewGauge("foo", nil)
+	if n := g.Get(); n != 0 {
+		t.Fatalf("unexpected gauge value: %g; expecting 0", n)
+	}
+	g.Set(1.234)
+	if n := g.Get(); n != 1.234 {
+		t.Fatalf("unexpected gauge value %g; expecting 1.234", n)
+	}
 }
 
 func TestGaugeSerial(t *testing.T) {
