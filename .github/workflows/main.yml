@@ -17,6 +17,7 @@ jobs:
       - name: Test
         run: |
           go test -v ./... -coverprofile=coverage.txt -covermode=atomic
+          GOARCH=386 go test -coverprofile=coverage.txt -covermode=atomic ./lib/... ./app/...
           go test -v ./... -race
       - name: Build
         run: |
