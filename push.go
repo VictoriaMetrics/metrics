@@ -351,7 +351,7 @@ func (pc *pushContext) pushMetrics(ctx context.Context, writeMetrics func(w io.W
 
 	// Prepare the request to sent to pc.pushURL
 	reqBody := bytes.NewReader(bb.B)
-	req, err := http.NewRequestWithContext(ctx, "GET", pc.pushURL.String(), reqBody)
+	req, err := http.NewRequestWithContext(ctx, "POST", pc.pushURL.String(), reqBody)
 	if err != nil {
 		panic(fmt.Errorf("BUG: metrics.push: cannot initialize request for metrics push to %q: %w", pc.pushURLRedacted, err))
 	}
