@@ -3,6 +3,7 @@ package metrics
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -105,6 +106,29 @@ func TestUnregisterAllMetrics(t *testing.T) {
 		if mns := ListMetricNames(); len(mns) != 0 {
 			t.Fatalf("unexpected metric names after UnregisterAllMetrics call on iteration %d: %q", j, mns)
 		}
+	}
+}
+
+func TestRegisterMetricsWriter(t *testing.T) {
+	RegisterMetricsWriter(func(w io.Writer) {
+		WriteCounterUint64(w, `counter{label="abc"}`, 1234)
+		WriteGaugeFloat64(w, `gauge{a="b",c="d"}`, -34.43)
+	})
+
+	var bb bytes.Buffer
+	WritePrometheus(&bb, false)
+	data := bb.String()
+
+	UnregisterAllMetrics()
+
+	expectedLine := fmt.Sprintf(`counter{label="abc"} 1234` + "\n")
+	if !strings.Contains(data, expectedLine) {
+		t.Fatalf("missing %q in\n%s", expectedLine, data)
+	}
+
+	expectedLine = fmt.Sprintf(`gauge{a="b",c="d"} -34.43` + "\n")
+	if !strings.Contains(data, expectedLine) {
+		t.Fatalf("missing %q in\n%s", expectedLine, data)
 	}
 }
 
