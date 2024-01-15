@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 )
@@ -91,6 +92,10 @@ func TestInitPushWithOptions(t *testing.T) {
 		}))
 		defer srv.Close()
 		ctx, cancel := context.WithCancel(context.Background())
+		var wg sync.WaitGroup
+		if opts != nil {
+			opts.WaitGroup = &wg
+		}
 		if err := s.InitPushWithOptions(ctx, srv.URL, time.Millisecond, opts); err != nil {
 			t.Fatalf("unexpected error: %s", err)
 		}
@@ -100,6 +105,7 @@ func TestInitPushWithOptions(t *testing.T) {
 		case <-doneCh:
 			// stop the periodic pusher
 			cancel()
+			wg.Wait()
 		}
 		if reqErr != nil {
 			t.Fatalf("unexpected error: %s", reqErr)
