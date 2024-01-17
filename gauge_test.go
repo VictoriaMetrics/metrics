@@ -29,6 +29,26 @@ func TestGaugeSet(t *testing.T) {
 	}
 }
 
+func TestGaugeAdd(t *testing.T) {
+	s := NewSet()
+	g := s.NewGauge("foo", nil)
+	if n := g.Get(); n != 0 {
+		t.Fatalf("unexpected gauge value: %g; expecting 0", n)
+	}
+	g.Add(1.234)
+	if n := g.Get(); n != 1.234 {
+		t.Fatalf("unexpected gauge value %g; expecting 1.234", n)
+	}
+	g.Add(2.345)
+	if n := g.Get(); n != 3.579 {
+		t.Fatalf("unexpected gauge value %g; expecting 3.579", n)
+	}
+	g.Add(-1.234)
+	if n := g.Get(); n != 2.345 {
+		t.Fatalf("unexpected gauge value %g; expecting 2.345", n)
+	}
+}
+
 func TestGaugeSerial(t *testing.T) {
 	name := "GaugeSerial"
 	n := 1.23
