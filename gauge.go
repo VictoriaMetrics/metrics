@@ -55,6 +55,22 @@ func (g *Gauge) Set(v float64) {
 	atomic.StoreUint64(&g.valueBits, n)
 }
 
+// Add adds v to g.
+//
+// The g must be created with nil callback in order to be able to call this function.
+func (g *Gauge) Add(v float64) {
+	if g.f != nil {
+		panic(fmt.Errorf("cannot call Add on gauge created with non-nil callback"))
+	}
+	for {
+		oldBits := atomic.LoadUint64(&g.valueBits)
+		newBits := math.Float64bits(math.Float64frombits(oldBits) + v)
+		if atomic.CompareAndSwapUint64(&g.valueBits, oldBits, newBits) {
+			return
+		}
+	}
+}
+
 func (g *Gauge) marshalTo(prefix string, w io.Writer) {
 	v := g.Get()
 	if float64(int64(v)) == v {
