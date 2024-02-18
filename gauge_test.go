@@ -15,6 +15,18 @@ func TestGaugeError(t *testing.T) {
 		g := GetOrCreateGauge("GetOrCreateGauge_nil_callback", func() float64 { return 123 })
 		g.Set(42)
 	})
+	expectPanic(t, "GetOrCreateGauge_Add_non-nil-callback", func() {
+		g := GetOrCreateGauge("GetOrCreateGauge_nil_callback", func() float64 { return 123 })
+		g.Add(42)
+	})
+	expectPanic(t, "GetOrCreateGauge_Inc_non-nil-callback", func() {
+		g := GetOrCreateGauge("GetOrCreateGauge_nil_callback", func() float64 { return 123 })
+		g.Inc()
+	})
+	expectPanic(t, "GetOrCreateGauge_Dec_non-nil-callback", func() {
+		g := GetOrCreateGauge("GetOrCreateGauge_nil_callback", func() float64 { return 123 })
+		g.Dec()
+	})
 }
 
 func TestGaugeSet(t *testing.T) {
@@ -26,6 +38,49 @@ func TestGaugeSet(t *testing.T) {
 	g.Set(1.234)
 	if n := g.Get(); n != 1.234 {
 		t.Fatalf("unexpected gauge value %g; expecting 1.234", n)
+	}
+}
+
+func TestGaugeIncDec(t *testing.T) {
+	s := NewSet()
+	g := s.NewGauge("foo", nil)
+	if n := g.Get(); n != 0 {
+		t.Fatalf("unexpected gauge value: %g; expecting 0", n)
+	}
+	for i := 1; i <= 100; i++ {
+		g.Inc()
+		if n := g.Get(); n != float64(i) {
+			t.Fatalf("unexpected gauge value %g; expecting %d", n, i)
+		}
+	}
+	for i := 99; i >= 0; i-- {
+		g.Dec()
+		if n := g.Get(); n != float64(i) {
+			t.Fatalf("unexpected gauge value %g; expecting %d", n, i)
+		}
+	}
+}
+
+func TestGaugeIncDecConcurrenc(t *testing.T) {
+	s := NewSet()
+	g := s.NewGauge("foo", nil)
+
+	workers := 5
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			for i := 0; i < 100; i++ {
+				g.Inc()
+				g.Dec()
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+
+	if n := g.Get(); n != 0 {
+		t.Fatalf("unexpected gauge value %g; want 0", n)
 	}
 }
 
