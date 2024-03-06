@@ -57,6 +57,32 @@ type Histogram struct {
 	sum float64
 }
 
+// ConvertToVMRange distributes input value in a range (lower, upper] to a vmRange static buckets
+func ConvertToVMRange(output map[string]float64, value, lower, upper float64) {
+	if lower > upper {
+		return
+	}
+	bucketRangesOnce.Do(initBucketRanges)
+	lowerBucketIdx := int((math.Log10(lower) - e10Min) * bucketsPerDecimal)
+	upperBucketIdx := int((math.Log10(upper) - e10Min) * bucketsPerDecimal)
+	rangeDistance := upper - lower
+	for i := lowerBucketIdx; i <= upperBucketIdx; i++ {
+		lowerInRange := bucketBounds[i]
+		if lowerInRange < lower {
+			lowerInRange = lower
+		}
+		upperInRange := bucketBounds[i+1]
+		if upperInRange > upper {
+			upperInRange = upper
+		}
+		multiplier := (upperInRange - lowerInRange) / rangeDistance
+		v := math.Round(value * multiplier)
+		if v > 0 {
+			output[getVMRange(i)] += v
+		}
+	}
+}
+
 // Reset resets the given histogram.
 func (h *Histogram) Reset() {
 	h.mu.Lock()
@@ -185,11 +211,13 @@ func initBucketRanges() {
 	v := math.Pow10(e10Min)
 	start := fmt.Sprintf("%.3e", v)
 	for i := 0; i < bucketsCount; i++ {
+		bucketBounds[i] = v
 		v *= bucketMultiplier
 		end := fmt.Sprintf("%.3e", v)
 		bucketRanges[i] = start + "..." + end
 		start = end
 	}
+	bucketBounds[len(bucketBounds)-1] = v
 }
 
 var (
@@ -197,6 +225,7 @@ var (
 	upperBucketRange = fmt.Sprintf("%.3e...+Inf", math.Pow10(e10Max))
 
 	bucketRanges     [bucketsCount]string
+	bucketBounds     [bucketsCount]float64
 	bucketRangesOnce sync.Once
 )
 
