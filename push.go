@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
@@ -13,8 +14,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"compress/gzip"
 )
 
 // PushOptions is the list of options, which may be applied to InitPushWithOptions().
@@ -34,6 +33,9 @@ type PushOptions struct {
 
 	// Optional WaitGroup for waiting until all the push workers created with this WaitGroup are stopped.
 	WaitGroup *sync.WaitGroup
+
+	// Optional HTTP client to use for pushing metrics to pushURL.
+	Client *http.Client
 }
 
 // InitPushWithOptions sets up periodic push for globally registered metrics to the given pushURL with the given interval.
@@ -314,7 +316,9 @@ func newPushContext(pushURL string, opts *PushOptions) (*pushContext, error) {
 	}
 
 	pushURLRedacted := pu.Redacted()
-	client := &http.Client{}
+	if opts.Client == nil {
+		opts.Client = &http.Client{}
+	}
 	return &pushContext{
 		pushURL:            pu,
 		pushURLRedacted:    pushURLRedacted,
@@ -322,7 +326,7 @@ func newPushContext(pushURL string, opts *PushOptions) (*pushContext, error) {
 		headers:            headers,
 		disableCompression: opts.DisableCompression,
 
-		client: client,
+		client: opts.Client,
 
 		pushesTotal:      pushMetricsSet.GetOrCreateCounter(fmt.Sprintf(`metrics_push_total{url=%q}`, pushURLRedacted)),
 		bytesPushedTotal: pushMetricsSet.GetOrCreateCounter(fmt.Sprintf(`metrics_push_bytes_pushed_total{url=%q}`, pushURLRedacted)),
