@@ -10,6 +10,35 @@ import (
 	"time"
 )
 
+func TestHistogramMerge(t *testing.T) {
+	name := `TestHistogramMerge`
+	h := NewHistogram(name)
+	// Write data to histogram
+	for i := 98; i < 218; i++ {
+		h.Update(float64(i))
+	}
+
+	b := NewHistogram("test")
+	for i := 98; i < 218; i++ {
+		h.Update(float64(i))
+	}
+
+	h.Merge(b)
+
+	// Make sure the histogram prints <prefix>_bucket on marshalTo call
+	testMarshalTo(t, h, "prefix", `prefix_bucket{vmrange="8.799e+01...1.000e+02"} 6
+prefix_bucket{vmrange="1.000e+02...1.136e+02"} 26
+prefix_bucket{vmrange="1.136e+02...1.292e+02"} 32
+prefix_bucket{vmrange="1.292e+02...1.468e+02"} 34
+prefix_bucket{vmrange="1.468e+02...1.668e+02"} 40
+prefix_bucket{vmrange="1.668e+02...1.896e+02"} 46
+prefix_bucket{vmrange="1.896e+02...2.154e+02"} 52
+prefix_bucket{vmrange="2.154e+02...2.448e+02"} 4
+prefix_sum 37800
+prefix_count 240
+`)
+}
+
 func TestGetVMRange(t *testing.T) {
 	f := func(bucketIdx int, vmrangeExpected string) {
 		t.Helper()
