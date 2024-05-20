@@ -125,6 +125,10 @@ func (h *Histogram) Merge(b *Histogram) {
 		if db == nil {
 			continue
 		}
+		if h.decimalBuckets[i] == nil {
+			var b [bucketsPerDecimal]uint64
+			h.decimalBuckets[i] = &b
+		}
 		for j := range db {
 			h.decimalBuckets[i][j] = db[j]
 		}
