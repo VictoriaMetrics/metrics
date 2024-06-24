@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strings"
 	"sync"
 	"time"
 )
@@ -55,6 +56,8 @@ type Histogram struct {
 	upper uint64
 
 	sum float64
+
+	compatible bool
 }
 
 // Reset resets the given histogram.
@@ -177,6 +180,9 @@ func (h *Histogram) VisitNonZeroBuckets(f func(vmrange string, count uint64)) {
 func NewHistogram(name string) *Histogram {
 	return defaultSet.NewHistogram(name)
 }
+func NewCompatibleHistogram(name string) *Histogram {
+	return defaultSet.NewCompatibleHistogram(name)
+}
 
 // GetOrCreateHistogram returns registered histogram with the given name
 // or creates new histogram if the registry doesn't contain histogram with
@@ -194,6 +200,9 @@ func NewHistogram(name string) *Histogram {
 // Performance tip: prefer NewHistogram instead of GetOrCreateHistogram.
 func GetOrCreateHistogram(name string) *Histogram {
 	return defaultSet.GetOrCreateHistogram(name)
+}
+func GetOrCreateCompatibleHistogram(name string) *Histogram {
+	return defaultSet.GetOrCreateCompatibleHistogram(name)
 }
 
 // UpdateDuration updates request duration based on the given startTime.
@@ -227,6 +236,10 @@ var (
 )
 
 func (h *Histogram) marshalTo(prefix string, w io.Writer) {
+	if h.compatible {
+		h.marshalToPrometheus(prefix, w)
+		return
+	}
 	countTotal := uint64(0)
 	h.VisitNonZeroBuckets(func(vmrange string, count uint64) {
 		tag := fmt.Sprintf("vmrange=%q", vmrange)
@@ -237,6 +250,41 @@ func (h *Histogram) marshalTo(prefix string, w io.Writer) {
 	})
 	if countTotal == 0 {
 		return
+	}
+	name, labels := splitMetricName(prefix)
+	sum := h.getSum()
+	if float64(int64(sum)) == sum {
+		fmt.Fprintf(w, "%s_sum%s %d\n", name, labels, int64(sum))
+	} else {
+		fmt.Fprintf(w, "%s_sum%s %g\n", name, labels, sum)
+	}
+	fmt.Fprintf(w, "%s_count%s %d\n", name, labels, countTotal)
+}
+func (h *Histogram) marshalToPrometheus(prefix string, w io.Writer) {
+	countTotal := uint64(0)
+	inf := false
+	h.VisitNonZeroBuckets(func(vmrange string, count uint64) {
+		v := strings.Split(vmrange, "...")
+		if len(v) != 2 {
+			return
+		}
+		if v[1] == "+Inf" {
+			inf = true
+		}
+		tag := fmt.Sprintf("le=%q", v[1])
+		metricName := addTag(prefix, tag)
+		name, labels := splitMetricName(metricName)
+		countTotal += count
+		fmt.Fprintf(w, "%s_bucket%s %d\n", name, labels, countTotal)
+	})
+	if countTotal == 0 {
+		return
+	}
+	if !inf {
+		tag := fmt.Sprintf("le=%q", "+Inf")
+		metricName := addTag(prefix, tag)
+		name, labels := splitMetricName(metricName)
+		fmt.Fprintf(w, "%s_bucket%s %d\n", name, labels, countTotal)
 	}
 	name, labels := splitMetricName(prefix)
 	sum := h.getSum()
