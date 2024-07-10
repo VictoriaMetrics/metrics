@@ -20,7 +20,7 @@ func TestHistogramMerge(t *testing.T) {
 
 	b := NewHistogram("test")
 	for i := 98; i < 218; i++ {
-		h.Update(float64(i))
+		b.Update(float64(i))
 	}
 
 	h.Merge(b)
