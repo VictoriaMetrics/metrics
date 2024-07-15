@@ -148,7 +148,7 @@ func TestRegisterUnregisterSet(t *testing.T) {
 		t.Fatalf("missing %q in\n%s", expectedLine, data)
 	}
 
-	UnregisterSet(s)
+	UnregisterSet(s, true)
 	bb.Reset()
 	WritePrometheus(&bb, false)
 	data = bb.String()
