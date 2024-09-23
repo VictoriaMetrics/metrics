@@ -5,34 +5,11 @@ import (
 	"testing"
 )
 
-// MyLabelsSlow will be converted into {hello="world",enabled="true"}
-// via reflect implementation.
-// It's slow but completely automatic. You don't need to write any code
-type MyLabelsSlow struct {
-	StructLabelComposer
-
-	Status string
-	Flag   bool
-}
-
-func TestLabelComposeWithReflect(t *testing.T) {
-	want := `my_counter{status="active",flag="true"}`
-
-	got := NameCompose("my_counter", MyLabelsSlow{
-		Status: "active",
-		Flag:   true,
-	})
-
-	if got != want {
-		t.Fatalf("unexpected full name; got %q; want %q", got, want)
-	}
-}
-
 // MyLabelsFast will be converted into string
 // via custom implementation (Using ToLabelsString() method of LabelComposer interface)
 // It's fast but requires manual implementation.
 type MyLabelsFast struct {
-	StructLabelComposer
+	AutoLabelComposer
 	Status string
 	Flag   bool
 }
@@ -40,7 +17,7 @@ type MyLabelsFast struct {
 func (m *MyLabelsFast) ToLabelsString() string {
 	return "{" +
 		`status="` + m.Status + `",` +
-		`flag="` + fmt.Sprintf("%v", m.Flag) + `"` +
+		`flag="` + fmt.Sprintf("%t", m.Flag) + `"` +
 		"}"
 }
 
@@ -51,6 +28,29 @@ func TestLabelComposeWithoutReflect(t *testing.T) {
 	})
 
 	if want != got {
+		t.Fatalf("unexpected full name; got %q; want %q", got, want)
+	}
+}
+
+func TestLabelComposeWithReflect(t *testing.T) {
+	want := `my_counter{status="active",flag="true"}`
+
+	// MyLabelsSlow will be converted into {hello="world",enabled="true"}
+	// via reflect implementation.
+	// It's slow but completely automatic. You don't need to write any code
+	type MyLabelsAuto struct {
+		AutoLabelComposer
+
+		Status string
+		Flag   bool
+	}
+
+	got := NameComposeAuto("my_counter", MyLabelsAuto{
+		Status: "active",
+		Flag:   true,
+	})
+
+	if got != want {
 		t.Fatalf("unexpected full name; got %q; want %q", got, want)
 	}
 }

@@ -13,22 +13,8 @@ type LabelComposer interface {
 	ToLabelsString() string
 }
 
-// labelComposerMarker is a marker interface for enforcing type-safety of StructLabelComposer.
-// Interface is private so it's only be used via StructLabelComposer implementation.
-// This is made for safety reasons, so it's not allowed to pass a random struct to NameCompose() function.
-type labelComposerMarker interface {
-	labelComposerMarker()
-}
-
-// StructLabelComposer MUST be embedded in any struct that serves as a label composer.
-// Embedding is required even if you provide custom implementation of LabelComposer (ToLabelsString() method)
-type StructLabelComposer struct{}
-
-func (s StructLabelComposer) labelComposerMarker() { panic("should never happen") }
-
 // NameCompose returns a valid full metric name, composed of a metric name + stringified labels
-// It will first try to use custom LabelComposer implementation (if any)
-// then fallback to slow reflection-based implementation.
+// It accepts a valid LabelComposer interface, which is used to compose labels string.
 //
 // The NameCompose can be called for further GetOrCreateCounter/etc func:
 //
@@ -37,19 +23,46 @@ func (s StructLabelComposer) labelComposerMarker() { panic("should never happen"
 //	  Status: "active",
 //	  Flag:   false,
 //	})).Inc()
-func NameCompose(name string, lc labelComposerMarker) string {
+func NameCompose(name string, lc LabelComposer) string {
 	if lc == nil {
 		return name
 	}
 
-	// Implementing public LabelComposer means we must implement
-	// a custom ToLabelsString() that supposed to be fast.
-	if v, ok := lc.(LabelComposer); ok {
-		return name + v.ToLabelsString()
+	return name + lc.ToLabelsString()
+}
+
+//
+// Auto composer
+//
+
+// labelComposerAutoMarker is just a marker interface.
+// Interface is private so it's only be used via AutoLabelComposer implementation.
+// This is made for safety reasons, so it's not allowed to pass a random struct to NameCompose() function.
+type labelComposerAutoMarker interface {
+	autoComposeMarker()
+}
+
+// AutoLabelComposer MUST be embedded in any struct that serves as a label composer.
+// Embedding is required even if you provide custom implementation of LabelComposer (ToLabelsString() method)
+type AutoLabelComposer struct{}
+
+func (s AutoLabelComposer) autoComposeMarker() { panic("should never happen") }
+
+// NameComposeAuto returns a valid full metric name, composed of a metric name + stringified labels
+// It accepts a struct who embeds AutoLabelComposer so labels are generated from it.
+//
+// The NameComposeAuto can be called for further GetOrCreateCounter/etc func:
+//
+//	// `my_counter{status="active",flag="false"}`
+//	GetOrCreateCounter(NameComposeAuto("my_counter", MyLabels{
+//	  Status: "active",
+//	  Flag:   false,
+//	})).Inc()
+func NameComposeAuto(name string, lc labelComposerAutoMarker) string {
+	if lc == nil {
+		return name
 	}
 
-	// falling back to reflect-based implementation
-	// This is considered to be slow. Implement your own LabelComposer if it's an issue for you.
 	return name + reflectLabelCompose(lc)
 }
 
@@ -57,7 +70,7 @@ func NameCompose(name string, lc labelComposerMarker) string {
 // It will use only exported scalar fields, and will skip fields with the `-` tag.
 // By default, the snake_cased field name is used as the label name.
 // Label's name can be overridden by using the `labels` tag
-func reflectLabelCompose(lc labelComposerMarker) string {
+func reflectLabelCompose(lc labelComposerAutoMarker) string {
 	labelsStr := "{"
 
 	val := reflect.Indirect(reflect.ValueOf(lc))
