@@ -77,6 +77,20 @@ func TestSummaryWithTags(t *testing.T) {
 	}
 }
 
+func TestSummaryWithEmptyTags(t *testing.T) {
+	name := `TestSummary{}`
+	s := NewSummary(name)
+	s.Update(123)
+
+	var bb bytes.Buffer
+	WritePrometheus(&bb, false)
+	result := bb.String()
+	namePrefixWithTag := `TestSummary{quantile="`
+	if !strings.Contains(result, namePrefixWithTag) {
+		t.Fatalf("missing summary prefix %s in the WritePrometheus output; got\n%s", namePrefixWithTag, result)
+	}
+}
+
 func TestSummaryInvalidQuantiles(t *testing.T) {
 	name := "SummaryInvalidQuantiles"
 	expectPanic(t, name, func() {
