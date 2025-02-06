@@ -200,6 +200,20 @@ func TestHistogramWithTags(t *testing.T) {
 	}
 }
 
+func TestHistogramWithEmptyTags(t *testing.T) {
+	name := `TestHistogram{}`
+	h := NewHistogram(name)
+	h.Update(123)
+
+	var bb bytes.Buffer
+	WritePrometheus(&bb, false)
+	result := bb.String()
+	namePrefixWithTag := `TestHistogram_bucket{vmrange="1.136e+02...1.292e+02"} 1` + "\n"
+	if !strings.Contains(result, namePrefixWithTag) {
+		t.Fatalf("missing histogram %s in the WritePrometheus output; got\n%s", namePrefixWithTag, result)
+	}
+}
+
 func TestGetOrCreateHistogramSerial(t *testing.T) {
 	name := "GetOrCreateHistogramSerial"
 	if err := testGetOrCreateHistogram(name); err != nil {
