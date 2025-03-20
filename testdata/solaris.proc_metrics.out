@@ -1,0 +1,48 @@
+# HELP process_minor_pagefaults Number of minor faults of the process not caused a page load from disk
+# TYPE process_minor_pagefaults counter
+process_minor_pagefaults 0
+# HELP process_major_pagefaults Number of major faults of the process caused a page load from disk
+# TYPE process_major_pagefaults counter
+process_major_pagefaults 0
+# HELP process_cpu_utilization_percent Percent of recent cpu time used by all lwps
+# TYPE process_cpu_utilization_percent gauge
+process_cpu_utilization_percent 0
+# HELP process_mem_utilization_percent Percent of system memory used by process
+# TYPE process_mem_utilization_percent gauge
+process_mem_utilization_percent 0.005950927734375
+# HELP process_user_cpu_seconds Total CPU time the process spent in user mode in seconds
+# TYPE process_user_cpu_seconds counter
+process_user_cpu_seconds 0.00038123100000000005
+# HELP process_system_cpu_seconds Total CPU time the process spent in kernel mode in seconds
+# TYPE process_system_cpu_seconds counter
+process_system_cpu_seconds 0.0015739310000000002
+# HELP process_total_cpu_seconds Total CPU time the process spent in user and kernel mode in seconds
+# TYPE process_total_cpu_seconds counter
+process_total_cpu_seconds 0.0019551620000000003
+# HELP process_children_user_cpu_seconds Total CPU time the process's waited-for children spent in user mode in seconds
+# TYPE process_children_user_cpu_seconds counter
+process_children_user_cpu_seconds 0
+# HELP process_children_system_cpu_seconds Total CPU time the process's waited-for children spent in kernel mode in seconds
+# TYPE process_children_system_cpu_seconds counter
+process_children_system_cpu_seconds 0
+# HELP process_children_total_cpu_seconds Total CPU time the process's waited-for children spent in user and in kernel mode in seconds
+# TYPE process_children_total_cpu_seconds counter
+process_children_total_cpu_seconds 0
+# HELP process_threads_total Number of threads in this process
+# TYPE process_threads_total gauge
+process_threads_total 1
+# HELP process_start_time_seconds The time the process has been started in seconds elapsed since Epoch
+# TYPE process_start_time_seconds counter
+process_start_time_seconds 0
+# HELP process_virtual_memory_bytes Virtual memory size in bytes
+# TYPE process_virtual_memory_bytes gauge
+process_virtual_memory_bytes 2.49856e+06
+# HELP process_resident_memory_bytes Resident set size of memory in bytes
+# TYPE process_resident_memory_bytes gauge
+process_resident_memory_bytes 1.490944e+06
+# HELP process_voluntary_ctxsw_total Number of voluntary context switches
+# TYPE process_voluntary_ctxsw_total counter
+process_voluntary_ctxsw_total 2
+# HELP process_involuntary_ctxsw_total Number of involuntary context switches
+# TYPE process_involuntary_ctxsw_total counter
+process_involuntary_ctxsw_total 0
