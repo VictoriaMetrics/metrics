@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
+	"math"
 	"os"
 	"strconv"
 	"strings"
-	"sync/atomic"
+	"syscall"
 	"time"
+	"unsafe"
 )
 
 // See https://github.com/prometheus/procfs/blob/a4ac0826abceb44c40fc71daed2b301db498b93e/proc_stat.go#L40 .
@@ -47,29 +48,163 @@ type procStat struct {
 	Rss         int
 }
 
-func writeProcessMetrics(w io.Writer) {
-	statFilepath := "/proc/self/stat"
-	data, err := ioutil.ReadFile(statFilepath)
+type ProcFd uint32
+
+const (
+	FD_LIMITS ProcFd = iota
+	FD_STAT
+	FD_IO
+	FD_MEM
+	FD_COUNT
+)
+
+// Testfiles in the same order as above.
+var testfiles = [FD_COUNT]string{
+	"/linux.ps_limits",
+	"/linux.ps_stat",
+	"/linux.ps_io",
+	"/linux.ps_status",
+}
+
+/*
+process metrics related file descriptors for files we always need, and
+
+	do not want to open/close all the time
+*/
+var pm_fd [FD_COUNT]int
+
+/*
+to avaid, that go closes the files in the background, which makes the FDs
+
+	above useless, we need to keep the reference to them as well
+*/
+var pm_file [FD_COUNT]*os.File
+
+/* path used to count open FDs */
+var fd_path string
+
+/* path to get fd limits */
+var limits_path string
+
+/* Max open files soft limit for this process */
+var maxOpenFDs float64 = 0
+
+var STAT_START = 0
+var NO_OUTPUT = false
+
+func init2() {
+	var testdata_dir = ""
+	var onTest = len(os.Args) > 1 && strings.HasSuffix(os.Args[0], ".test")
+	if onTest {
+		cwd, err := os.Getwd()
+		if err != nil {
+			panic("Unknwon current working directory: " + err.Error())
+		}
+		testdata_dir = cwd + "/testdata"
+		fmt.Printf("Using test data in %s ...\n", testdata_dir)
+	}
+	for i := 0; i < int(FD_COUNT); i++ {
+		pm_fd[i] = -1
+	}
+	if onTest {
+		fd_path = testdata_dir + "/fd"
+		limits_path = testdata_dir + testfiles[FD_LIMITS]
+	} else {
+		fd_path = "/proc/self/fd"
+		limits_path = "/proc/self/limits"
+	}
+	maxOpenFDs = float64(getMaxFilesLimit())
+
+	// files to keep open
+	var path string
+	if onTest {
+		path = testdata_dir + testfiles[FD_STAT]
+	} else {
+		path = "/proc/self/stat"
+	}
+	f, err := os.OpenFile(path, os.O_RDONLY, 0)
 	if err != nil {
-		log.Printf("ERROR: metrics: cannot open %s: %s", statFilepath, err)
-		return
+		log.Printf("WARN: Unable to open %s (%v).", path, err)
+	} else {
+		// pid and "comm" field do not change over this process lifetime, so lets
+		// precompute the number of bytes that can always be skipped (max 8+17+2).
+		var data [32]byte
+		pm_file[FD_STAT] = f
+		pm_fd[FD_STAT] = int(f.Fd())
+		n, err := syscall.Pread(pm_fd[FD_STAT],
+			(*(*[unsafe.Sizeof(data) - 1]byte)(unsafe.Pointer(&data)))[:], 0)
+		if err != nil {
+			log.Printf("WARN: %s read error (%s).", path, err)
+			pm_fd[FD_STAT] = -1
+			f.Close()
+		} else {
+			for i := 0; i < n; i++ {
+				// lookup the ') ' suffix for the 2nd field. If someone renames it
+				// to something stupid, it does not deserve getting stats ;-)
+				if data[i] == 0x29 && data[i+1] == 0x20 {
+					STAT_START = i + 2
+					break
+				}
+			}
+			if STAT_START == 0 {
+				pm_fd[FD_STAT] = -1 // should never happen
+				f.Close()
+			}
+		}
 	}
 
-	// Search for the end of command.
-	n := bytes.LastIndex(data, []byte(") "))
-	if n < 0 {
-		log.Printf("ERROR: metrics: cannot find command in parentheses in %q read from %s", data, statFilepath)
+	if onTest {
+		path = testdata_dir + testfiles[FD_IO]
+	} else {
+		path = "/proc/self/io"
+	}
+	f, err = os.OpenFile(path, os.O_RDONLY, 0)
+	if err != nil {
+		log.Printf("WARN: Unable to open %s (%v).", path, err)
+	} else {
+		pm_file[FD_IO] = f
+		pm_fd[FD_IO] = int(f.Fd())
+	}
+
+	if onTest {
+		path = testdata_dir + testfiles[FD_MEM]
+	} else {
+		path = "/proc/self/status"
+	}
+	f, err = os.OpenFile(path, os.O_RDONLY, 0)
+	if err != nil {
+		log.Printf("WARN: Unable to open %s (%v).", path, err)
+	} else {
+		pm_file[FD_MEM] = f
+		pm_fd[FD_MEM] = int(f.Fd())
+	}
+}
+
+func init() {
+	init2()
+}
+
+func writeProcessMetrics(w io.Writer) {
+	writeProcessMemMetrics(w)
+	writeIOMetrics(w)
+	var data [512]byte
+	if pm_fd[FD_STAT] < 0 {
 		return
 	}
-	data = data[n+2:]
-
+	n, err := syscall.Pread(pm_fd[FD_STAT],
+		(*(*[unsafe.Sizeof(data) - 1]byte)(unsafe.Pointer(&data)))[:], 0)
+	if err != nil {
+		log.Printf("WARN: %s read error (%s).", pm_file[FD_STAT].Name(), err)
+		return
+	}
+	data[n] = 0
 	var p procStat
-	bb := bytes.NewBuffer(data)
-	_, err = fmt.Fscanf(bb, "%c %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d",
+	_, err = fmt.Fscanf(bytes.NewReader(data[STAT_START:n]),
+		"%c %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d",
 		&p.State, &p.Ppid, &p.Pgrp, &p.Session, &p.TtyNr, &p.Tpgid, &p.Flags, &p.Minflt, &p.Cminflt, &p.Majflt, &p.Cmajflt,
 		&p.Utime, &p.Stime, &p.Cutime, &p.Cstime, &p.Priority, &p.Nice, &p.NumThreads, &p.ItrealValue, &p.Starttime, &p.Vsize, &p.Rss)
 	if err != nil {
-		log.Printf("ERROR: metrics: cannot parse %q read from %s: %s", data, statFilepath, err)
+		log.Printf("WARN: %s parse error in '%q' (%s).", pm_file[FD_STAT].Name(), data, err)
 		return
 	}
 
@@ -88,39 +223,35 @@ func writeProcessMetrics(w io.Writer) {
 	WriteGaugeUint64(w, "process_resident_memory_bytes", uint64(p.Rss)*pageSizeBytes)
 	WriteGaugeUint64(w, "process_start_time_seconds", uint64(startTimeSeconds))
 	WriteGaugeUint64(w, "process_virtual_memory_bytes", uint64(p.Vsize))
-	writeProcessMemMetrics(w)
-	writeIOMetrics(w)
 }
 
-var procSelfIOErrLogged uint32
-
 func writeIOMetrics(w io.Writer) {
-	ioFilepath := "/proc/self/io"
-	data, err := ioutil.ReadFile(ioFilepath)
-	if err != nil {
-		// Do not spam the logs with errors - this error cannot be fixed without process restart.
-		// See https://github.com/VictoriaMetrics/metrics/issues/42
-		if atomic.CompareAndSwapUint32(&procSelfIOErrLogged, 0, 1) {
-			log.Printf("ERROR: metrics: cannot read process_io_* metrics from %q, so these metrics won't be updated until the error is fixed; "+
-				"see https://github.com/VictoriaMetrics/metrics/issues/42 ; The error: %s", ioFilepath, err)
-		}
+	var data [256]byte // 83 + 7*20 = 223
+	if pm_fd[FD_IO] < 0 {
+		return
 	}
-
+	n, err := syscall.Pread(pm_fd[FD_IO],
+		(*(*[unsafe.Sizeof(data) - 1]byte)(unsafe.Pointer(&data)))[:], 0)
+	if err != nil {
+		log.Printf("WARN: %s read error (%s)", pm_file[FD_IO].Name(), err)
+		return
+	}
+	data[n] = 0
 	getInt := func(s string) int64 {
 		n := strings.IndexByte(s, ' ')
 		if n < 0 {
-			log.Printf("ERROR: metrics: cannot find whitespace in %q at %q", s, ioFilepath)
+			log.Printf("WARN: %s no whitespace in '%q'.", pm_file[FD_IO].Name(), s)
 			return 0
 		}
 		v, err := strconv.ParseInt(s[n+1:], 10, 64)
 		if err != nil {
-			log.Printf("ERROR: metrics: cannot parse %q at %q: %s", s, ioFilepath, err)
+			log.Printf("WARN: %s parse error in '%q' (%s)", pm_file[FD_IO].Name(), s, err)
 			return 0
 		}
 		return v
 	}
 	var rchar, wchar, syscr, syscw, readBytes, writeBytes int64
-	lines := strings.Split(string(data), "\n")
+	lines := strings.Split(string(data[:n]), "\n")
 	for _, s := range lines {
 		s = strings.TrimSpace(s)
 		switch {
@@ -146,48 +277,53 @@ func writeIOMetrics(w io.Writer) {
 	WriteGaugeUint64(w, "process_io_storage_written_bytes_total", uint64(writeBytes))
 }
 
+// In Linux the startime shown in /proc/<pid>/stat field 22 is in ticks since
+// boot and thus the exact starttime since epoch in seconds would be:
+//
+//	Now() - $(</proc/uptime) + stat.starttime/ticksPerSecond
+//
+// However, since "global" vars get evaluated at app start, now() should be good
+// enough.
 var startTimeSeconds = time.Now().Unix()
 
 // writeFDMetrics writes process_max_fds and process_open_fds metrics to w.
 func writeFDMetrics(w io.Writer) {
-	totalOpenFDs, err := getOpenFDsCount("/proc/self/fd")
-	if err != nil {
-		log.Printf("ERROR: metrics: cannot determine open file descriptors count: %s", err)
-		return
+	if maxOpenFDs != 0 {
+		WriteGaugeFloat64(w, "process_max_fds", maxOpenFDs)
 	}
-	maxOpenFDs, err := getMaxFilesLimit("/proc/self/limits")
-	if err != nil {
-		log.Printf("ERROR: metrics: cannot determine the limit on open file descritors: %s", err)
-		return
+	totalOpenFDs := getOpenFDsCount()
+	if totalOpenFDs > 0 {
+		WriteGaugeUint64(w, "process_open_fds", uint64(totalOpenFDs))
 	}
-	WriteGaugeUint64(w, "process_max_fds", maxOpenFDs)
-	WriteGaugeUint64(w, "process_open_fds", totalOpenFDs)
 }
 
-func getOpenFDsCount(path string) (uint64, error) {
-	f, err := os.Open(path)
+/** return 0 on error, the number of open files otherwise */
+func getOpenFDsCount() int32 {
+	f, err := os.Open(fd_path)
 	if err != nil {
-		return 0, err
+		return 0
 	}
 	defer f.Close()
-	var totalOpenFDs uint64
+	var totalOpenFDs = 0
 	for {
 		names, err := f.Readdirnames(512)
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			return 0, fmt.Errorf("unexpected error at Readdirnames: %s", err)
+			log.Printf("WARN: %s read error (%s)", fd_path, err)
+		} else {
+			totalOpenFDs += len(names)
 		}
-		totalOpenFDs += uint64(len(names))
 	}
-	return totalOpenFDs, nil
+	return int32(totalOpenFDs)
 }
 
-func getMaxFilesLimit(path string) (uint64, error) {
-	data, err := ioutil.ReadFile(path)
+/* returns 0 on error, -1 for unlimited, the limit otherwise */
+func getMaxFilesLimit() int32 {
+	data, err := os.ReadFile(limits_path)
 	if err != nil {
-		return 0, err
+		return 0
 	}
 	lines := strings.Split(string(data), "\n")
 	const prefix = "Max open files"
@@ -199,19 +335,22 @@ func getMaxFilesLimit(path string) (uint64, error) {
 		// Extract soft limit.
 		n := strings.IndexByte(text, ' ')
 		if n < 0 {
-			return 0, fmt.Errorf("cannot extract soft limit from %q", s)
+			log.Printf("WARN: %s no soft limit found in '%q'", limits_path, s)
+			return 0
 		}
 		text = text[:n]
 		if text == "unlimited" {
-			return 1<<64 - 1, nil
+			return -1
 		}
-		limit, err := strconv.ParseUint(text, 10, 64)
-		if err != nil {
-			return 0, fmt.Errorf("cannot parse soft limit from %q: %s", s, err)
+		limit, err := strconv.ParseInt(text, 10, 64)
+		if err != nil || limit < 0 || limit > math.MaxInt32 {
+			log.Printf("WARN: %s no valid soft limit in '%q' (%s).", limits_path, s, err)
+			return 0
 		}
-		return limit, nil
+		return int32(limit)
 	}
-	return 0, fmt.Errorf("cannot find max open files limit")
+	log.Printf("WARN: %s no max open files limit found", limits_path)
+	return 0
 }
 
 // https://man7.org/linux/man-pages/man5/procfs.5.html
@@ -224,9 +363,8 @@ type memStats struct {
 }
 
 func writeProcessMemMetrics(w io.Writer) {
-	ms, err := getMemStats("/proc/self/status")
-	if err != nil {
-		log.Printf("ERROR: metrics: cannot determine memory status: %s", err)
+	ms := getMemStats()
+	if ms == nil {
 		return
 	}
 	WriteGaugeUint64(w, "process_virtual_memory_peak_bytes", ms.vmPeak)
@@ -237,13 +375,20 @@ func writeProcessMemMetrics(w io.Writer) {
 
 }
 
-func getMemStats(path string) (*memStats, error) {
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
+func getMemStats() *memStats {
+	var data [2048]byte // 571 + 2*57 + 57*20 = 1825  so 2048 should be safe
+	if pm_fd[FD_MEM] < 0 {
+		return nil
 	}
+	n, err := syscall.Pread(pm_fd[FD_MEM],
+		(*(*[unsafe.Sizeof(data) - 1]byte)(unsafe.Pointer(&data)))[:], 0)
+	if err != nil {
+		log.Printf("WARN: %s read error (%s).", pm_file[FD_MEM].Name(), err)
+		return nil
+	}
+	data[n] = 0
 	var ms memStats
-	lines := strings.Split(string(data), "\n")
+	lines := strings.Split(string(data[:n]), "\n")
 	for _, s := range lines {
 		if !strings.HasPrefix(s, "Vm") && !strings.HasPrefix(s, "Rss") {
 			continue
@@ -251,18 +396,22 @@ func getMemStats(path string) (*memStats, error) {
 		// Extract key value.
 		line := strings.Fields(s)
 		if len(line) != 3 {
-			return nil, fmt.Errorf("unexpected number of fields found in %q; got %d; want %d", s, len(line), 3)
+			log.Printf("WARN: %s unexpected number of fields in '%q' (%d != %d).",
+				pm_file[FD_MEM].Name(), s, len(line), 3)
+			return nil
 		}
 		memStatName := line[0]
 		memStatValue := line[1]
 		value, err := strconv.ParseUint(memStatValue, 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("cannot parse number from %q: %w", s, err)
+			log.Printf("WARN: %s  number parse error in '%q' (%s)", pm_file[FD_MEM].Name(), s, err)
+			return nil
 		}
 		if line[2] != "kB" {
-			return nil, fmt.Errorf("expecting kB value in %q; got %q", s, line[2])
+			log.Printf("WARN: %s expecting kB value in '%q' (got '%q')", pm_file[FD_MEM].Name(), s, line[2])
+			return nil
 		}
-		value *= 1024
+		value <<= 10
 		switch memStatName {
 		case "VmPeak:":
 			ms.vmPeak = value
@@ -276,5 +425,5 @@ func getMemStats(path string) (*memStats, error) {
 			ms.rssShmem = value
 		}
 	}
-	return &ms, nil
+	return &ms
 }
