@@ -1,0 +1,63 @@
+# HELP process_io_read_bytes
+# TYPE process_io_read_bytes gauge
+process_io_read_bytes 0
+# HELP process_io_written_bytes
+# TYPE process_io_written_bytes gauge
+process_io_written_bytes 0
+# HELP process_io_read_syscalls
+# TYPE process_io_read_syscalls gauge
+process_io_read_syscalls 0
+# HELP process_io_write_syscalls
+# TYPE process_io_write_syscalls gauge
+process_io_write_syscalls 0
+# HELP process_io_read_storage_bytes
+# TYPE process_io_read_storage_bytes gauge
+process_io_read_storage_bytes 0
+# HELP process_io_write_storage_bytes
+# TYPE process_io_write_storage_bytes gauge
+process_io_write_storage_bytes 0
+# HELP process_psi_cpu_some_us
+# TYPE process_psi_cpu_some_us counter
+process_psi_cpu_some_us 8655568
+# HELP process_psi_cpu_full_us
+# TYPE process_psi_cpu_full_us counter
+process_psi_cpu_full_us 8558482
+# HELP process_psi_io_some_us
+# TYPE process_psi_io_some_us counter
+process_psi_io_some_us 10791243
+# HELP process_psi_io_full_us
+# TYPE process_psi_io_full_us counter
+process_psi_io_full_us 10763684
+# HELP process_psi_memory_some_us
+# TYPE process_psi_memory_some_us counter
+process_psi_memory_some_us 0
+# HELP process_psi_memory_full_us
+# TYPE process_psi_memory_full_us counter
+process_psi_memory_full_us 0
+# HELP process_system_cpu_seconds
+# TYPE process_system_cpu_seconds counter
+process_system_cpu_seconds 0.08
+# HELP process_total_cpu_seconds
+# TYPE process_total_cpu_seconds counter
+process_total_cpu_seconds 0.18
+# HELP process_user_cpu_seconds
+# TYPE process_user_cpu_seconds counter
+process_user_cpu_seconds 0.1
+# HELP process_major_pagefaults
+# TYPE process_major_pagefaults counter
+process_major_pagefaults 0
+# HELP process_minor_pagefaults
+# TYPE process_minor_pagefaults counter
+process_minor_pagefaults 3111
+# HELP process_num_threads
+# TYPE process_num_threads gauge
+process_num_threads 1
+# HELP process_resident_memory_bytes
+# TYPE process_resident_memory_bytes gauge
+process_resident_memory_bytes 4231168
+# HELP process_start_time_seconds
+# TYPE process_start_time_seconds gauge
+process_start_time_seconds 1742515804
+# HELP process_virtual_memory_bytes
+# TYPE process_virtual_memory_bytes gauge
+process_virtual_memory_bytes 25751552
