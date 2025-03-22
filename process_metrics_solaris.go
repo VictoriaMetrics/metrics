@@ -22,7 +22,6 @@ type uchar_t uint8 // unsigned char
 type char int8     // signed char
 type short int16
 type ushort_t uint16
-type dev_t short
 type id_t int32
 type pid_t int32
 type uid_t uint32
@@ -34,6 +33,7 @@ type poolid_t id_t
 type uintptr_t uint64
 type long int64
 type ulong_t uint64
+type dev_t ulong_t
 type size_t ulong_t
 type time_t long
 type sigset_t [16]char      // we do not need those struct, so just pad
@@ -93,7 +93,7 @@ type pstatus_t struct {
 	// 1680
 }
 
-const PRARGSZ = 89 /* number of chars of arguments */
+const PRARGSZ = 80 /* number of chars of arguments */
 const PRFNSZ = 16  /* Maximum size of execed filename */
 
 /* process ps(1) information file.  /proc/<pid>/psinfo */
@@ -120,14 +120,15 @@ type psinfo_t struct {
 	/* right of the high-order bit (1.0 == 0x8000) */
 	pr_pctcpu ushort_t /* % of recent cpu time used by all lwps */
 	pr_pctmem ushort_t /* % of system memory used by process */
-	// 78
+	pr_dummy	int32	/* 8 byte alignment: GO doesn't do it automagically */
+	// 84 + 4 = 88
 	pr_start timestruc_t /* process start time, from the epoch */
 	pr_time  timestruc_t /* usr+sys cpu time for this process */
 	pr_ctime timestruc_t /* usr+sys cpu time for reaped children */
-	// 126
+	// 136
 	pr_fname  [PRFNSZ]char  /* name of execed file */
 	pr_psargs [PRARGSZ]char /* initial characters of arg list */
-	// 231 + 1
+	// 232
 	pr_wstat  int32     /* if zombie, the wait() status */
 	pr_argc   int32     /* initial argument count */
 	pr_argv   uintptr_t /* address of initial argument vector */
@@ -514,8 +515,8 @@ func updateProcMetrics() {
 		//num_threads = psinfo.pr_nlwp + psinfo.pr_nzomb	// already by status
 		pm_val[PM_VSIZE] = float64(psinfo.pr_size << 10)
 		pm_val[PM_RSS] = float64(psinfo.pr_rssize << 10)
-		pm_val[PM_CPU_UTIL] = float64(psinfo.pr_pctcpu) / float64(0x8000)
-		pm_val[PM_MEM_UTIL] = float64(psinfo.pr_pctmem) / float64(0x8000)
+		pm_val[PM_CPU_UTIL] = 100 * float64(psinfo.pr_pctcpu) / float64(0x8000)
+		pm_val[PM_MEM_UTIL] = 100 * float64(psinfo.pr_pctmem) / float64(0x8000)
 		pm_val[PM_STARTTIME] = float64(psinfo.pr_start.tv_sec)
 	}
 	fail = pm_fd[FD_USAGE] < 0
@@ -566,14 +567,14 @@ func writeProcessMetrics(w io.Writer) {
 	updateProcMetrics()
 	if isMetadataEnabled() {
 		for _, v := range activeProcMetrics {
-			fmt.Fprintf(w, "# HELP %s %s\n# TYPE %s %s\n%s %g\n",
+			fmt.Fprintf(w, "# HELP %s %s\n# TYPE %s %s\n%s %.17g\n",
 				pm_desc[v].name, pm_desc[v].help,
 				pm_desc[v].name, pm_desc[v].mtype,
 				pm_desc[v].name, pm_val[v])
 		}
 	} else {
 		for _, v := range activeProcMetrics {
-			fmt.Fprintf(w, "%s %g\n", pm_desc[v].name, pm_val[v])
+			fmt.Fprintf(w, "%s %.17g\n", pm_desc[v].name, pm_val[v])
 		}
 	}
 }
@@ -582,14 +583,14 @@ func writeFDMetrics(w io.Writer) {
 	updateFdMetrics()
 	if isMetadataEnabled() {
 		for _, v := range activeFdMetrics {
-			fmt.Fprintf(w, "# HELP %s %s\n# TYPE %s %s\n%s %g\n",
+			fmt.Fprintf(w, "# HELP %s %s\n# TYPE %s %s\n%s %.17g\n",
 				pm_desc[v].name, pm_desc[v].help,
 				pm_desc[v].name, pm_desc[v].mtype,
 				pm_desc[v].name, pm_val[v])
 		}
 	} else {
 		for _, v := range activeFdMetrics {
-			fmt.Fprintf(w, "%s %g\n", pm_desc[v].name, pm_val[v])
+			fmt.Fprintf(w, "%s %.17g\n", pm_desc[v].name, pm_val[v])
 		}
 	}
 }

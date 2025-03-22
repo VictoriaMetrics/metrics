@@ -9,7 +9,7 @@ process_major_pagefaults 0
 process_cpu_utilization_percent 0
 # HELP process_mem_utilization_percent Percent of system memory used by process
 # TYPE process_mem_utilization_percent gauge
-process_mem_utilization_percent 0.005950927734375
+process_mem_utilization_percent 0
 # HELP process_user_cpu_seconds Total CPU time the process spent in user mode in seconds
 # TYPE process_user_cpu_seconds counter
 process_user_cpu_seconds 0.00038123100000000005
@@ -33,13 +33,13 @@ process_children_total_cpu_seconds 0
 process_threads_total 1
 # HELP process_start_time_seconds The time the process has been started in seconds elapsed since Epoch
 # TYPE process_start_time_seconds counter
-process_start_time_seconds 0
+process_start_time_seconds 1742401600
 # HELP process_virtual_memory_bytes Virtual memory size in bytes
 # TYPE process_virtual_memory_bytes gauge
-process_virtual_memory_bytes 2.49856e+06
+process_virtual_memory_bytes 2498560
 # HELP process_resident_memory_bytes Resident set size of memory in bytes
 # TYPE process_resident_memory_bytes gauge
-process_resident_memory_bytes 1.490944e+06
+process_resident_memory_bytes 1490944
 # HELP process_voluntary_ctxsw_total Number of voluntary context switches
 # TYPE process_voluntary_ctxsw_total counter
 process_voluntary_ctxsw_total 2

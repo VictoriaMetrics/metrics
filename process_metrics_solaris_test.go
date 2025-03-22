@@ -42,7 +42,7 @@ func stripComments(input string) string {
 	return builder.String()
 }
 
-func Test_writeMetrics(t *testing.T) {
+func Test_processMetrics(t *testing.T) {
 	tests := []struct {
 		name  string
 		wantW string
