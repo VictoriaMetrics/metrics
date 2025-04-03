@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/tls"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -240,4 +242,55 @@ func TestPushMetrics(t *testing.T) {
 	f(s, &PushOptions{
 		Headers: []string{"Foo: Bar", "baz:aaaa-bbb"},
 	}, "Baz: aaaa-bbb\r\nContent-Encoding: gzip\r\nContent-Type: text/plain\r\nFoo: Bar\r\n", "bar 42.12\nfoo 1234\n")
+}
+
+func TestCustomClientWithTLSConfig(t *testing.T) {
+	// Create a TLS configuration that accepts self-signed cert
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+
+	// Create a custom client with TLS configuration
+	customClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+		},
+	}
+
+	// Set up a TLS server that generates a self-signed certificate
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	s := NewSet()
+	c := s.NewCounter("test_tls_counter")
+	c.Inc()
+
+	// Test with properly configured TLS client
+	opts := &PushOptions{
+		CustomClient:       customClient,
+		DisableCompression: true,
+	}
+
+	if err := s.PushMetrics(context.Background(), server.URL, opts); err != nil {
+		t.Fatalf("Push failed with properly configured TLS client: %s", err)
+	}
+
+	// Test with default client
+	optsNoCustomClient := &PushOptions{
+		DisableCompression: true,
+	}
+
+	err := s.PushMetrics(context.Background(), server.URL, optsNoCustomClient)
+	if err == nil {
+		t.Fatal("Push succeeded with default client, but should have failed due to self-signed certificate")
+	}
+
+	// Verify the error is TLS-related
+	if !strings.Contains(err.Error(), "certificate") &&
+		!strings.Contains(err.Error(), "TLS") &&
+		!strings.Contains(err.Error(), "x509") {
+		t.Fatalf("Expected TLS certificate error, got: %s", err)
+	}
 }
