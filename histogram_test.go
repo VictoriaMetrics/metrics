@@ -188,6 +188,33 @@ func TestGetOrCreateHistogramConcurrent(t *testing.T) {
 	}
 }
 
+func TestSample(t *testing.T) {
+	testVal := func(want, got interface{}) {
+		t.Helper()
+		if want != got {
+			t.Errorf("wanted %v, got %v", want, got)
+		}
+	}
+	testCases := []*Histogram{
+		NewHistogram("test_histogram"),
+		GetOrCreateHistogram("test_2_histogram")}
+
+	for i, h := range testCases {
+		t.Run(fmt.Sprintf("case_%d", i), func(t *testing.T) {
+			h.Update(10)
+			h.Update(25)
+			h.Update(30)
+			samp := h.Samples()
+
+			testVal(10, samp.Min())
+			testVal(30, samp.Max())
+			testVal(65, samp.Sum())
+			testVal(3, samp.Count())
+			testVal(21.666666666666668, samp.Mean())
+		})
+	}
+}
+
 func testGetOrCreateHistogram(name string) error {
 	h1 := GetOrCreateHistogram(name)
 	for i := 0; i < 10; i++ {

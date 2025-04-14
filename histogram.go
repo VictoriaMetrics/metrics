@@ -54,6 +54,8 @@ type Histogram struct {
 	lower uint64
 	upper uint64
 
+	min float64
+	max float64
 	sum float64
 }
 
@@ -71,6 +73,8 @@ func (h *Histogram) Reset() {
 	h.lower = 0
 	h.upper = 0
 	h.sum = 0
+	h.min = math.MaxFloat64
+	h.max = 0
 	h.mu.Unlock()
 }
 
@@ -85,6 +89,12 @@ func (h *Histogram) Update(v float64) {
 	bucketIdx := (math.Log10(v) - e10Min) * bucketsPerDecimal
 	h.mu.Lock()
 	h.sum += v
+	if v > h.max {
+		h.max = v
+	}
+	if v < h.min {
+		h.min = v
+	}
 	if bucketIdx < 0 {
 		h.lower++
 	} else if bucketIdx >= bucketsCount {
@@ -228,3 +238,24 @@ func (h *Histogram) getSum() float64 {
 	h.mu.Unlock()
 	return sum
 }
+
+type Samples struct {
+	min, max, count, sum int
+}
+
+func (h *Histogram) Samples() *Samples {
+	s := &Samples{min: int(h.min), max: int(h.max)}
+	countTotal := uint64(0)
+	h.VisitNonZeroBuckets(func(vmrange string, count uint64) {
+		countTotal += count
+	})
+	s.sum = int(h.getSum())
+	s.count = int(countTotal)
+	return s
+}
+
+func (s *Samples) Min() int      { return s.min }
+func (s *Samples) Max() int      { return s.max }
+func (s *Samples) Sum() int      { return s.sum }
+func (s *Samples) Count() int    { return s.count }
+func (s *Samples) Mean() float64 { return float64(s.sum) / float64(s.count) }

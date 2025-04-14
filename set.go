@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math"
 	"sort"
 	"sync"
 	"time"
@@ -66,7 +67,7 @@ func (s *Set) WritePrometheus(w io.Writer) {
 //
 // The returned histogram is safe to use from concurrent goroutines.
 func (s *Set) NewHistogram(name string) *Histogram {
-	h := &Histogram{}
+	h := &Histogram{min: math.MaxFloat64}
 	s.registerMetric(name, h)
 	return h
 }
@@ -95,7 +96,7 @@ func (s *Set) GetOrCreateHistogram(name string) *Histogram {
 		}
 		nmNew := &namedMetric{
 			name:   name,
-			metric: &Histogram{},
+			metric: &Histogram{min: math.MaxFloat64},
 		}
 		s.mu.Lock()
 		nm = s.m[name]
