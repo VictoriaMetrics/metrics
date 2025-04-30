@@ -1,0 +1,60 @@
+# HELP process_virtual_memory_peak_bytes
+# TYPE process_virtual_memory_peak_bytes gauge
+process_virtual_memory_peak_bytes 25751552
+# HELP process_resident_memory_peak_bytes
+# TYPE process_resident_memory_peak_bytes gauge
+process_resident_memory_peak_bytes 4231168
+# HELP process_resident_memory_anon_bytes
+# TYPE process_resident_memory_anon_bytes gauge
+process_resident_memory_anon_bytes 1626112
+# HELP process_resident_memory_file_bytes
+# TYPE process_resident_memory_file_bytes gauge
+process_resident_memory_file_bytes 2605056
+# HELP process_resident_memory_shared_bytes
+# TYPE process_resident_memory_shared_bytes gauge
+process_resident_memory_shared_bytes 0
+# HELP process_io_read_bytes_total
+# TYPE process_io_read_bytes_total gauge
+process_io_read_bytes_total 0
+# HELP process_io_written_bytes_total
+# TYPE process_io_written_bytes_total gauge
+process_io_written_bytes_total 0
+# HELP process_io_read_syscalls_total
+# TYPE process_io_read_syscalls_total gauge
+process_io_read_syscalls_total 0
+# HELP process_io_write_syscalls_total
+# TYPE process_io_write_syscalls_total gauge
+process_io_write_syscalls_total 0
+# HELP process_io_storage_read_bytes_total
+# TYPE process_io_storage_read_bytes_total gauge
+process_io_storage_read_bytes_total 0
+# HELP process_io_storage_written_bytes_total
+# TYPE process_io_storage_written_bytes_total gauge
+process_io_storage_written_bytes_total 0
+# HELP process_cpu_seconds_system_total
+# TYPE process_cpu_seconds_system_total counter
+process_cpu_seconds_system_total 0.08
+# HELP process_cpu_seconds_total
+# TYPE process_cpu_seconds_total counter
+process_cpu_seconds_total 0.18
+# HELP process_cpu_seconds_user_total
+# TYPE process_cpu_seconds_user_total counter
+process_cpu_seconds_user_total 0.1
+# HELP process_major_pagefaults_total
+# TYPE process_major_pagefaults_total counter
+process_major_pagefaults_total 0
+# HELP process_minor_pagefaults_total
+# TYPE process_minor_pagefaults_total counter
+process_minor_pagefaults_total 3111
+# HELP process_num_threads
+# TYPE process_num_threads gauge
+process_num_threads 1
+# HELP process_resident_memory_bytes
+# TYPE process_resident_memory_bytes gauge
+process_resident_memory_bytes 4231168
+# HELP process_start_time_seconds
+# TYPE process_start_time_seconds gauge
+process_start_time_seconds 1742515804
+# HELP process_virtual_memory_bytes
+# TYPE process_virtual_memory_bytes gauge
+process_virtual_memory_bytes 25751552
