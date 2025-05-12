@@ -7,7 +7,7 @@ import (
 func TestValidateMetricSuccess(t *testing.T) {
 	f := func(s string) {
 		t.Helper()
-		if err := validateMetric(s); err != nil {
+		if err := ValidateMetric(s); err != nil {
 			t.Fatalf("cannot validate %q: %s", s, err)
 		}
 	}
@@ -24,7 +24,7 @@ func TestValidateMetricSuccess(t *testing.T) {
 func TestValidateMetricError(t *testing.T) {
 	f := func(s string) {
 		t.Helper()
-		if err := validateMetric(s); err == nil {
+		if err := ValidateMetric(s); err == nil {
 			t.Fatalf("expecting non-nil error when validating %q", s)
 		}
 	}
