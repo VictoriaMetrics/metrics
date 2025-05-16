@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-var defaultBuckets = []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
+var defaultUpperBounds = []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
 
 // OTLP Histogram is a histogram for non-negative values with pre-defined buckets
 //
@@ -70,8 +70,9 @@ func (h *OTLPHistogram) Update(v float64) {
 	}
 	h.mu.Lock()
 	h.sum += v
+	h.count++
 	if bucketIdx == -1 {
-		// +Inf, nothing to do
+		// +Inf, nothing to do, already accounted for in the total count
 	}
 	h.buckets[bucketIdx]++
 	h.mu.Unlock()
@@ -125,9 +126,32 @@ func GetOrCreateOTLPHistogram(name string) *OTLPHistogram {
 	return defaultSet.GetOrCreateOTLPHistogram(name)
 }
 
+func newOTLPHistogram(upperBounds []float64) *OTLPHistogram {
+	validateBuckets(&upperBounds)
+	oh := OTLPHistogram{
+		upperBounds: upperBounds,
+		buckets:     make([]uint64, len(upperBounds)),
+	}
+
+	return &oh
+}
+
+func validateBuckets(upperBounds *[]float64) {
+	// TODO
+	if len(*upperBounds) == 0 {
+		panic("not good")
+	}
+}
+
 func (h *OTLPHistogram) marshalTo(prefix string, w io.Writer) {
 	cumulativeSum := uint64(0)
 	h.mu.Lock()
+	count := h.count
+	sum := h.sum
+	if count == 0 {
+		h.mu.Unlock()
+		return
+	}
 	for i, ub := range h.upperBounds {
 		cumulativeSum += h.buckets[i]
 		tag := fmt.Sprintf(`le="%v"`, ub)
@@ -135,8 +159,6 @@ func (h *OTLPHistogram) marshalTo(prefix string, w io.Writer) {
 		name, labels := splitMetricName(metricName)
 		fmt.Fprintf(w, "%s_bucket%s %d\n", name, labels, cumulativeSum)
 	}
-	count := h.count
-	sum := h.sum
 	h.mu.Unlock()
 
 	tag := fmt.Sprintf("le=%q", "+Inf")

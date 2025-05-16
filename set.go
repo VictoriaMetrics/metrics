@@ -139,7 +139,7 @@ func (s *Set) GetOrCreateHistogram(name string) *Histogram {
 //
 // The returned histogram is safe to use from concurrent goroutines.
 func (s *Set) NewOTLPHistogram(name string) *OTLPHistogram {
-	h := &OTLPHistogram{}
+	h := newOTLPHistogram(defaultUpperBounds)
 	s.registerMetric(name, h)
 	return h
 }
@@ -168,7 +168,7 @@ func (s *Set) GetOrCreateOTLPHistogram(name string) *OTLPHistogram {
 		}
 		nmNew := &namedMetric{
 			name:   name,
-			metric: &OTLPHistogram{},
+			metric: newOTLPHistogram(defaultUpperBounds),
 		}
 		s.mu.Lock()
 		nm = s.m[name]
