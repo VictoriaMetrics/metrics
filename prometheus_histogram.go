@@ -69,13 +69,14 @@ func (h *PrometheusHistogram) Update(v float64) {
 		}
 	}
 	h.mu.Lock()
+	defer h.mu.Unlock()
 	h.sum += v
 	h.count++
 	if bucketIdx == -1 {
-		// +Inf, nothing to do, already accounted for in the total count
+		// +Inf, nothing to do, already accounted for in the total sum
+		return
 	}
 	h.buckets[bucketIdx]++
-	h.mu.Unlock()
 }
 
 // Merge merges src to h
@@ -108,6 +109,20 @@ func NewPrometheusHistogram(name string) *PrometheusHistogram {
 	return defaultSet.NewPrometheusHistogram(name)
 }
 
+// NewPrometheusHistogram creates and returns new prometheus histogram with the given name.
+//
+// name must be valid Prometheus-compatible metric with possible labels.
+// For instance,
+//
+//   - foo
+//   - foo{bar="baz"}
+//   - foo{bar="baz",aaa="b"}
+//
+// The returned histogram is safe to use from concurrent goroutines.
+func NewPrometheusHistogramExt(name string, buckets []float64) *PrometheusHistogram {
+	return defaultSet.NewPrometheusHistogramExt(name, buckets)
+}
+
 // GetOrCreateHistogram returns registered histogram with the given name
 // or creates new histogram if the registry doesn't contain histogram with
 // the given name.
@@ -126,20 +141,46 @@ func GetOrCreatePrometheusHistogram(name string) *PrometheusHistogram {
 	return defaultSet.GetOrCreatePrometheusHistogram(name)
 }
 
+// GetOrCreateHistogramExt returns registered histogram with the given name and
+// buckets or creates new histogram if the registry doesn't contain histogram
+// with the given name.
+//
+// name must be valid Prometheus-compatible metric with possible labels.
+// For instance,
+//
+//   - foo
+//   - foo{bar="baz"}
+//   - foo{bar="baz",aaa="b"}
+//
+// The returned histogram is safe to use from concurrent goroutines.
+//
+// Performance tip: prefer NewHistogram instead of GetOrCreateHistogram.
+func GetOrCreatePrometheusHistogramExt(name string, buckets []float64) *PrometheusHistogram {
+	return defaultSet.GetOrCreatePrometheusHistogramExt(name, buckets)
+}
+
 func newPrometheusHistogram(upperBounds []float64) *PrometheusHistogram {
-	validateBuckets(&upperBounds)
-	oh := PrometheusHistogram{
+	validateBuckets(upperBounds)
+	last := len(upperBounds) - 1
+	if math.IsInf(upperBounds[last], +1) {
+		upperBounds = upperBounds[:last] // ignore +Inf bucket as it is covered anyways
+	}
+	h := PrometheusHistogram{
 		upperBounds: upperBounds,
 		buckets:     make([]uint64, len(upperBounds)),
 	}
 
-	return &oh
+	return &h
 }
 
-func validateBuckets(upperBounds *[]float64) {
-	// TODO
-	if len(*upperBounds) == 0 {
-		panic("not good")
+func validateBuckets(upperBounds []float64) {
+	if len(upperBounds) == 0 {
+		panic("no upper bounds were given for the buckets")
+	}
+	for i := 0; i < len(upperBounds)-1; i++ {
+		if upperBounds[i] >= upperBounds[i+1] {
+			panic("upper bounds for the buckets must be strictly increasing")
+		}
 	}
 }
 

@@ -128,7 +128,8 @@ func (s *Set) GetOrCreateHistogram(name string) *Histogram {
 	return h
 }
 
-// NewPrometheusHistogram creates and returns new Prometheus histogram in s with the given name.
+// NewPrometheusHistogram creates and returns new Prometheus histogram in s
+// with the given name.
 //
 // name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
@@ -139,13 +140,30 @@ func (s *Set) GetOrCreateHistogram(name string) *Histogram {
 //
 // The returned histogram is safe to use from concurrent goroutines.
 func (s *Set) NewPrometheusHistogram(name string) *PrometheusHistogram {
-	h := newPrometheusHistogram(defaultUpperBounds)
+	return s.NewPrometheusHistogramExt(name, defaultUpperBounds)
+}
+
+
+// NewPrometheusHistogram creates and returns new Prometheus histogram in s
+// with the given name and the given upper bounds for the buckets.
+//
+// name must be valid Prometheus-compatible metric with possible labels.
+// For instance,
+//
+//   - foo
+//   - foo{bar="baz"}
+//   - foo{bar="baz",aaa="b"}
+//
+// The returned histogram is safe to use from concurrent goroutines.
+func (s *Set) NewPrometheusHistogramExt(name string, buckets []float64) *PrometheusHistogram {
+	h := newPrometheusHistogram(buckets)
 	s.registerMetric(name, h)
 	return h
 }
 
-// GetOrCreatePrometheusHistogram returns registered histogram in s with the given name
-// or creates new histogram if s doesn't contain histogram with the given name.
+// GetOrCreatePrometheusHistogram returns registered prometheus histogram in s
+// with the given name or creates new histogram if s doesn't contain histogram
+// with the given name.
 //
 // name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
@@ -158,6 +176,24 @@ func (s *Set) NewPrometheusHistogram(name string) *PrometheusHistogram {
 //
 // Performance tip: prefer NewPrometheusHistogram instead of GetOrCreatePrometheusHistogram.
 func (s *Set) GetOrCreatePrometheusHistogram(name string) *PrometheusHistogram {
+	return s.GetOrCreatePrometheusHistogramExt(name, defaultUpperBounds)
+}
+
+// GetOrCreatePrometheusHistogramExt returns registered prometheus histogram in
+// s with the given name or creates new histogram if s doesn't contain
+// histogram with the given name.
+//
+// name must be valid Prometheus-compatible metric with possible labels.
+// For instance,
+//
+//   - foo
+//   - foo{bar="baz"}
+//   - foo{bar="baz",aaa="b"}
+//
+// The returned histogram is safe to use from concurrent goroutines.
+//
+// Performance tip: prefer NewPrometheusHistogram instead of GetOrCreatePrometheusHistogram.
+func (s *Set) GetOrCreatePrometheusHistogramExt(name string, buckets []float64) *PrometheusHistogram {
 	s.mu.Lock()
 	nm := s.m[name]
 	s.mu.Unlock()
@@ -168,7 +204,7 @@ func (s *Set) GetOrCreatePrometheusHistogram(name string) *PrometheusHistogram {
 		}
 		nmNew := &namedMetric{
 			name:   name,
-			metric: newPrometheusHistogram(defaultUpperBounds),
+			metric: newPrometheusHistogram(buckets),
 		}
 		s.mu.Lock()
 		nm = s.m[name]
