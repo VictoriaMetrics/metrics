@@ -82,6 +82,20 @@ func (h *PrometheusHistogram) Update(v float64) {
 // Merge merges src to h
 func (h *PrometheusHistogram) Merge(src *PrometheusHistogram) {
 	// first we must compare if the upper bounds are identical
+	valid := true
+	if len(h.upperBounds) != len(src.upperBounds) {
+		valid = false
+	} else {
+		for i := range h.upperBounds {
+			if h.upperBounds[i] != src.upperBounds[i] {
+				valid = false
+			}
+		}
+	}
+
+	if !valid {
+		panic("impossible to merge buckets with different bucket upper bounds")
+	}
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -92,7 +106,9 @@ func (h *PrometheusHistogram) Merge(src *PrometheusHistogram) {
 	h.sum += src.sum
 	h.count += src.count
 
-	// TODO: implement actual sum
+	for i := range h.buckets {
+		h.buckets[i] += src.buckets[i]
+	}
 }
 
 // NewPrometheusHistogram creates and returns new prometheus histogram with the given name.
@@ -119,8 +135,8 @@ func NewPrometheusHistogram(name string) *PrometheusHistogram {
 //   - foo{bar="baz",aaa="b"}
 //
 // The returned histogram is safe to use from concurrent goroutines.
-func NewPrometheusHistogramExt(name string, buckets []float64) *PrometheusHistogram {
-	return defaultSet.NewPrometheusHistogramExt(name, buckets)
+func NewPrometheusHistogramExt(name string, upperBounds []float64) *PrometheusHistogram {
+	return defaultSet.NewPrometheusHistogramExt(name, upperBounds)
 }
 
 // GetOrCreateHistogram returns registered histogram with the given name
@@ -142,7 +158,7 @@ func GetOrCreatePrometheusHistogram(name string) *PrometheusHistogram {
 }
 
 // GetOrCreateHistogramExt returns registered histogram with the given name and
-// buckets or creates new histogram if the registry doesn't contain histogram
+// upperBounds or creates new histogram if the registry doesn't contain histogram
 // with the given name.
 //
 // name must be valid Prometheus-compatible metric with possible labels.
@@ -155,8 +171,8 @@ func GetOrCreatePrometheusHistogram(name string) *PrometheusHistogram {
 // The returned histogram is safe to use from concurrent goroutines.
 //
 // Performance tip: prefer NewHistogram instead of GetOrCreateHistogram.
-func GetOrCreatePrometheusHistogramExt(name string, buckets []float64) *PrometheusHistogram {
-	return defaultSet.GetOrCreatePrometheusHistogramExt(name, buckets)
+func GetOrCreatePrometheusHistogramExt(name string, upperBounds []float64) *PrometheusHistogram {
+	return defaultSet.GetOrCreatePrometheusHistogramExt(name, upperBounds)
 }
 
 func newPrometheusHistogram(upperBounds []float64) *PrometheusHistogram {

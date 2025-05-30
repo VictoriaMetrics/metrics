@@ -145,7 +145,7 @@ func (s *Set) NewPrometheusHistogram(name string) *PrometheusHistogram {
 
 
 // NewPrometheusHistogram creates and returns new Prometheus histogram in s
-// with the given name and the given upper bounds for the buckets.
+// with the given name and the given upper bounds for the upperBounds.
 //
 // name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
@@ -155,8 +155,8 @@ func (s *Set) NewPrometheusHistogram(name string) *PrometheusHistogram {
 //   - foo{bar="baz",aaa="b"}
 //
 // The returned histogram is safe to use from concurrent goroutines.
-func (s *Set) NewPrometheusHistogramExt(name string, buckets []float64) *PrometheusHistogram {
-	h := newPrometheusHistogram(buckets)
+func (s *Set) NewPrometheusHistogramExt(name string, upperBounds []float64) *PrometheusHistogram {
+	h := newPrometheusHistogram(upperBounds)
 	s.registerMetric(name, h)
 	return h
 }
@@ -193,7 +193,7 @@ func (s *Set) GetOrCreatePrometheusHistogram(name string) *PrometheusHistogram {
 // The returned histogram is safe to use from concurrent goroutines.
 //
 // Performance tip: prefer NewPrometheusHistogram instead of GetOrCreatePrometheusHistogram.
-func (s *Set) GetOrCreatePrometheusHistogramExt(name string, buckets []float64) *PrometheusHistogram {
+func (s *Set) GetOrCreatePrometheusHistogramExt(name string, upperBounds []float64) *PrometheusHistogram {
 	s.mu.Lock()
 	nm := s.m[name]
 	s.mu.Unlock()
@@ -204,7 +204,7 @@ func (s *Set) GetOrCreatePrometheusHistogramExt(name string, buckets []float64) 
 		}
 		nmNew := &namedMetric{
 			name:   name,
-			metric: newPrometheusHistogram(buckets),
+			metric: newPrometheusHistogram(upperBounds),
 		}
 		s.mu.Lock()
 		nm = s.m[name]

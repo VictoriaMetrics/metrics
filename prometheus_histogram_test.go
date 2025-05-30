@@ -42,6 +42,7 @@ prefix_sum 2045.25
 prefix_count 405
 `)
 
+	// make sure that if the +Inf bucket is manually specified it gets ignored and we have the same resutls at the end
 	h2 := NewPrometheusHistogramExt("TestPrometheusHistogram2", append(defaultUpperBounds, math.Inf(+1)))
 
 	// Write data to histogram
@@ -64,6 +65,39 @@ prefix_bucket{le="10"} 401
 prefix_bucket{le="+Inf"} 405
 prefix_sum 2045.25
 prefix_count 405
+`)
+}
+
+func TestPrometheusHistogramMerge(t *testing.T) {
+	name := `TestPrometheusHistogramMerge`
+	h := NewPrometheusHistogram(name)
+	// Write data to histogram
+	for i := 0; i <= 10_100; i += 25 { // from 0 to 10'100 ms in 25ms steps
+		h.Update(float64(i) * 1e-3)
+	}
+
+	b := NewPrometheusHistogram("test")
+	for i := 0; i <= 10_100; i += 25 { // from 0 to 10'100 ms in 25ms steps
+		h.Update(float64(i) * 1e-3)
+	}
+
+	h.Merge(b)
+
+	// Make sure the histogram prints <prefix>_bucket on marshalTo call
+	testMarshalTo(t, h, "prefix", `prefix_bucket{le="0.005"} 2
+prefix_bucket{le="0.01"} 2
+prefix_bucket{le="0.025"} 4
+prefix_bucket{le="0.05"} 6
+prefix_bucket{le="0.1"} 10
+prefix_bucket{le="0.25"} 22
+prefix_bucket{le="0.5"} 42
+prefix_bucket{le="1"} 82
+prefix_bucket{le="2.5"} 202
+prefix_bucket{le="5"} 402
+prefix_bucket{le="10"} 802
+prefix_bucket{le="+Inf"} 810
+prefix_sum 4090.5
+prefix_count 810
 `)
 }
 
