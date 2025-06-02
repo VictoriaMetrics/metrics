@@ -44,7 +44,7 @@ prefix_count 405
 	testMarshalTo(t, h, "prefix", expected)
 
 	// make sure that if the +Inf bucket is manually specified it gets ignored and we have the same resutls at the end
-	h2 := NewPrometheusHistogramExt("TestPrometheusHistogram2", append(defaultUpperBounds, math.Inf(+1)))
+	h2 := NewPrometheusHistogramExt("TestPrometheusHistogram2", append(PrometheusHistogramDefaultBuckets, math.Inf(+1)))
 
 	h.Reset()
 
@@ -63,46 +63,41 @@ prefix_count 405
 	testMarshalTo(t, h2, "prefix", expected)
 }
 
-func TestPrometheusHistogramMerge(t *testing.T) {
-	name := `TestPrometheusHistogramMerge`
-	h := NewPrometheusHistogram(name)
+func TestPrometheusHistogramLinearBuckets(t *testing.T) {
+	const expected string = `prefix_bucket{le="0.5"} 1
+prefix_bucket{le="1.5"} 2
+prefix_bucket{le="2.5"} 3
+prefix_bucket{le="3.5"} 4
+prefix_bucket{le="4.5"} 5
+prefix_bucket{le="5.5"} 6
+prefix_bucket{le="6.5"} 7
+prefix_bucket{le="7.5"} 8
+prefix_bucket{le="8.5"} 9
+prefix_bucket{le="9.5"} 10
+prefix_bucket{le="+Inf"} 11
+prefix_sum 55
+prefix_count 11
+`
+	name := "TestPrometheusHistogramLinearBuckets"
+	upperBounds := LinearBuckets(0.5, 1.0, 10)
+	h := NewPrometheusHistogramExt(name, upperBounds)
+
 	// Write data to histogram
-	for i := 0; i <= 10_100; i += 25 { // from 0 to 10'100 ms in 25ms steps
-		h.Update(float64(i) * 1e-3)
+	for i := 0; i <= 10; i++ { // from 0 to 10
+		h.Update(float64(i))
 	}
-
-	b := NewPrometheusHistogram("test")
-	for i := 0; i <= 10_100; i += 25 { // from 0 to 10'100 ms in 25ms steps
-		h.Update(float64(i) * 1e-3)
-	}
-
-	h.Merge(b)
 
 	// Make sure the histogram prints <prefix>_bucket on marshalTo call
-	testMarshalTo(t, h, "prefix", `prefix_bucket{le="0.005"} 2
-prefix_bucket{le="0.01"} 2
-prefix_bucket{le="0.025"} 4
-prefix_bucket{le="0.05"} 6
-prefix_bucket{le="0.1"} 10
-prefix_bucket{le="0.25"} 22
-prefix_bucket{le="0.5"} 42
-prefix_bucket{le="1"} 82
-prefix_bucket{le="2.5"} 202
-prefix_bucket{le="5"} 402
-prefix_bucket{le="10"} 802
-prefix_bucket{le="+Inf"} 810
-prefix_sum 4090.5
-prefix_count 810
-`)
+	testMarshalTo(t, h, "prefix", expected)
 
+	// Make sure we panic when the count of linear buckets is < 1
 	func() {
 		defer func() {
 			if r := recover(); r == nil {
-				t.Error("Merge did not panic with mimatched buckets.")
+				t.Errorf("LinearBuckets should've panicked with a count of 0.")
 			}
 		}()
-		h2 := NewPrometheusHistogramExt("TestPrometheusHistogramMerge2", []float64{14})
-		h.Merge(h2)
+		_ = LinearBuckets(.14, .22, 0)
 	}()
 }
 

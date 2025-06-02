@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-var defaultUpperBounds = []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
+var PrometheusHistogramDefaultBuckets = []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
 
 // Prometheus Histogram is a histogram for non-negative values with pre-defined buckets
 //
@@ -79,38 +79,6 @@ func (h *PrometheusHistogram) Update(v float64) {
 	h.buckets[bucketIdx]++
 }
 
-// Merge merges src to h
-func (h *PrometheusHistogram) Merge(src *PrometheusHistogram) {
-	// first we must compare if the upper bounds are identical
-	valid := true
-	if len(h.upperBounds) != len(src.upperBounds) {
-		valid = false
-	} else {
-		for i := range h.upperBounds {
-			if h.upperBounds[i] != src.upperBounds[i] {
-				valid = false
-			}
-		}
-	}
-
-	if !valid {
-		panic("impossible to merge buckets with different bucket upper bounds")
-	}
-
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	src.mu.Lock()
-	defer src.mu.Unlock()
-
-	h.sum += src.sum
-	h.count += src.count
-
-	for i := range h.buckets {
-		h.buckets[i] += src.buckets[i]
-	}
-}
-
 // NewPrometheusHistogram creates and returns new prometheus histogram with the given name.
 //
 // name must be valid Prometheus-compatible metric with possible labels.
@@ -176,7 +144,7 @@ func GetOrCreatePrometheusHistogramExt(name string, upperBounds []float64) *Prom
 }
 
 func newPrometheusHistogram(upperBounds []float64) *PrometheusHistogram {
-	validateBuckets(upperBounds)
+	mustValidateBuckets(upperBounds)
 	last := len(upperBounds) - 1
 	if math.IsInf(upperBounds[last], +1) {
 		upperBounds = upperBounds[:last] // ignore +Inf bucket as it is covered anyways
@@ -189,15 +157,34 @@ func newPrometheusHistogram(upperBounds []float64) *PrometheusHistogram {
 	return &h
 }
 
-func validateBuckets(upperBounds []float64) {
+func mustValidateBuckets(upperBounds []float64) {
+	if err := ValidateBuckets(upperBounds); err != nil {
+		panic(err)
+	}
+}
+
+func ValidateBuckets(upperBounds []float64) error {
 	if len(upperBounds) == 0 {
-		panic("no upper bounds were given for the buckets")
+		return fmt.Errorf("no upper bounds were given for the buckets")
 	}
 	for i := 0; i < len(upperBounds)-1; i++ {
 		if upperBounds[i] >= upperBounds[i+1] {
-			panic("upper bounds for the buckets must be strictly increasing")
+			return fmt.Errorf("upper bounds for the buckets must be strictly increasing")
 		}
 	}
+	return nil
+}
+
+func LinearBuckets(start, width float64, count int) []float64 {
+	if count < 1 {
+		panic("LinearBuckets needs a positive count")
+	}
+	upperBounds := make([]float64, count)
+	for i := range upperBounds {
+		upperBounds[i] = start
+		start += width
+	}
+	return upperBounds
 }
 
 func (h *PrometheusHistogram) marshalTo(prefix string, w io.Writer) {

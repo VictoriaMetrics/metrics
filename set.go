@@ -140,7 +140,7 @@ func (s *Set) GetOrCreateHistogram(name string) *Histogram {
 //
 // The returned histogram is safe to use from concurrent goroutines.
 func (s *Set) NewPrometheusHistogram(name string) *PrometheusHistogram {
-	return s.NewPrometheusHistogramExt(name, defaultUpperBounds)
+	return s.NewPrometheusHistogramExt(name, PrometheusHistogramDefaultBuckets)
 }
 
 
@@ -176,7 +176,7 @@ func (s *Set) NewPrometheusHistogramExt(name string, upperBounds []float64) *Pro
 //
 // Performance tip: prefer NewPrometheusHistogram instead of GetOrCreatePrometheusHistogram.
 func (s *Set) GetOrCreatePrometheusHistogram(name string) *PrometheusHistogram {
-	return s.GetOrCreatePrometheusHistogramExt(name, defaultUpperBounds)
+	return s.GetOrCreatePrometheusHistogramExt(name, PrometheusHistogramDefaultBuckets)
 }
 
 // GetOrCreatePrometheusHistogramExt returns registered prometheus histogram in
