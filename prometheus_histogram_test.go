@@ -9,6 +9,21 @@ import (
 )
 
 func TestPrometheusHistogramSerial(t *testing.T) {
+	const expected string = `prefix_bucket{le="0.005"} 1
+prefix_bucket{le="0.01"} 1
+prefix_bucket{le="0.025"} 2
+prefix_bucket{le="0.05"} 3
+prefix_bucket{le="0.1"} 5
+prefix_bucket{le="0.25"} 11
+prefix_bucket{le="0.5"} 21
+prefix_bucket{le="1"} 41
+prefix_bucket{le="2.5"} 101
+prefix_bucket{le="5"} 201
+prefix_bucket{le="10"} 401
+prefix_bucket{le="+Inf"} 405
+prefix_sum 2045.25
+prefix_count 405
+`
 	name := "TestPrometheusHistogramSerial"
 	h := NewPrometheusHistogram(name)
 
@@ -26,46 +41,26 @@ func TestPrometheusHistogramSerial(t *testing.T) {
 	}
 
 	// Make sure the histogram prints <prefix>_bucket on marshalTo call
-	testMarshalTo(t, h, "prefix", `prefix_bucket{le="0.005"} 1
-prefix_bucket{le="0.01"} 1
-prefix_bucket{le="0.025"} 2
-prefix_bucket{le="0.05"} 3
-prefix_bucket{le="0.1"} 5
-prefix_bucket{le="0.25"} 11
-prefix_bucket{le="0.5"} 21
-prefix_bucket{le="1"} 41
-prefix_bucket{le="2.5"} 101
-prefix_bucket{le="5"} 201
-prefix_bucket{le="10"} 401
-prefix_bucket{le="+Inf"} 405
-prefix_sum 2045.25
-prefix_count 405
-`)
+	testMarshalTo(t, h, "prefix", expected)
 
 	// make sure that if the +Inf bucket is manually specified it gets ignored and we have the same resutls at the end
 	h2 := NewPrometheusHistogramExt("TestPrometheusHistogram2", append(defaultUpperBounds, math.Inf(+1)))
 
+	h.Reset()
+
 	// Write data to histogram
 	for i := 0; i <= 10_100; i += 25 { // from 0 to 10'100 ms in 25ms steps
+		h.Update(float64(i) * 1e-3)
 		h2.Update(float64(i) * 1e-3)
 	}
 
+	// also test negative values and NaN for h, those will be ignored
+	h.Update(-1)
+	h.Update(math.NaN())
+
 	// Make sure the histogram prints <prefix>_bucket on marshalTo call
-	testMarshalTo(t, h2, "prefix", `prefix_bucket{le="0.005"} 1
-prefix_bucket{le="0.01"} 1
-prefix_bucket{le="0.025"} 2
-prefix_bucket{le="0.05"} 3
-prefix_bucket{le="0.1"} 5
-prefix_bucket{le="0.25"} 11
-prefix_bucket{le="0.5"} 21
-prefix_bucket{le="1"} 41
-prefix_bucket{le="2.5"} 101
-prefix_bucket{le="5"} 201
-prefix_bucket{le="10"} 401
-prefix_bucket{le="+Inf"} 405
-prefix_sum 2045.25
-prefix_count 405
-`)
+	testMarshalTo(t, h, "prefix", expected)
+	testMarshalTo(t, h2, "prefix", expected)
 }
 
 func TestPrometheusHistogramMerge(t *testing.T) {
@@ -99,6 +94,16 @@ prefix_bucket{le="+Inf"} 810
 prefix_sum 4090.5
 prefix_count 810
 `)
+
+	func() {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("Merge did not panic with mimatched buckets.")
+			}
+		}()
+		h2 := NewPrometheusHistogramExt("TestPrometheusHistogramMerge2", []float64{14})
+		h.Merge(h2)
+	}()
 }
 
 // inspired from https://github.com/prometheus/client_golang/blob/main/prometheus/histogram_test.go
