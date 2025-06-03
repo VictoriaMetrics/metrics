@@ -35,6 +35,8 @@ func TestWriteRuntimeHistogramMetricOk(t *testing.T) {
 foo_bucket{le="3"} 3
 foo_bucket{le="4"} 6
 foo_bucket{le="+Inf"} 6
+foo_sum 14
+foo_count 6
 `)
 
 	f(&runtimemetrics.Float64Histogram{
@@ -44,6 +46,8 @@ foo_bucket{le="+Inf"} 6
 foo_bucket{le="3"} 25
 foo_bucket{le="4"} 26
 foo_bucket{le="+Inf"} 26
+foo_sum 53
+foo_count 26
 `)
 
 	f(&runtimemetrics.Float64Histogram{
@@ -59,6 +63,8 @@ foo_bucket{le="8"} 88
 foo_bucket{le="9"} 220
 foo_bucket{le="10"} 230
 foo_bucket{le="+Inf"} 230
+foo_sum 1580
+foo_count 230
 `)
 
 	f(&runtimemetrics.Float64Histogram{
@@ -67,5 +73,7 @@ foo_bucket{le="+Inf"} 230
 	}, `foo_bucket{le="4"} 1
 foo_bucket{le="5"} 6
 foo_bucket{le="+Inf"} 6
+foo_sum -Inf
+foo_count 6
 `)
 }
