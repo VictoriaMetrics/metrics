@@ -165,6 +165,7 @@ func writeRuntimeHistogramMetric(w io.Writer, name string, h *runtimemetrics.Flo
 
 	totalCount := uint64(0)
 	iNext := 0.0
+	sum := float64(0)
 	WriteMetadataIfNeeded(w, name, "histogram")
 	for i, count := range counts {
 		totalCount += count
@@ -175,9 +176,14 @@ func writeRuntimeHistogramMetric(w io.Writer, name string, h *runtimemetrics.Flo
 				fmt.Fprintf(w, `%s_bucket{le="%g"} %d`+"\n", name, le, totalCount)
 			}
 		}
+		if count != 0 {
+			sum += buckets[i] * float64(count)
+		}
 	}
 	totalCount += tailCount
 	fmt.Fprintf(w, `%s_bucket{le="+Inf"} %d`+"\n", name, totalCount)
+	fmt.Fprintf(w, `%s_sum %g`+"\n", name, sum)
+	fmt.Fprintf(w, `%s_count %d`+"\n", name, totalCount)
 }
 
 // Limit the number of buckets for Go runtime histograms in order to prevent from high cardinality issues at scraper side.
