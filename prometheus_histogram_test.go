@@ -43,7 +43,7 @@ prefix_count 405
 	// Make sure the histogram prints <prefix>_bucket on marshalTo call
 	testMarshalTo(t, h, "prefix", expected)
 
-	// make sure that if the +Inf bucket is manually specified it gets ignored and we have the same resutls at the end
+	// make sure that if the +Inf bucket is manually specified it gets ignored and we have the same results at the end
 	h2 := NewPrometheusHistogramExt("TestPrometheusHistogram2", append(PrometheusHistogramDefaultBuckets, math.Inf(+1)))
 
 	h.Reset()

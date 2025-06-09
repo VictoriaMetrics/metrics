@@ -9,7 +9,7 @@ import (
 
 var PrometheusHistogramDefaultBuckets = []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
 
-// Prometheus Histogram is a histogram for non-negative values with pre-defined buckets
+// PrometheusHistogram is a histogram for non-negative values with pre-defined buckets
 //
 // Each bucket contains a counter for values in the given range.
 // Each bucket is exposed via the following metric:
@@ -25,7 +25,7 @@ var PrometheusHistogramDefaultBuckets = []float64{.005, .01, .025, .05, .1, .25,
 //
 // Zero histogram is usable.
 type PrometheusHistogram struct {
-	// Mu gurantees synchronous update for all the counters and sum.
+	// Mu guarantees synchronous update for all the counters and sum.
 	//
 	// Do not use sync.RWMutex, since it has zero sense from performance PoV.
 	// It only complicates the code.
@@ -41,7 +41,7 @@ type PrometheusHistogram struct {
 	sum float64
 }
 
-// Reset resets the given histogram.
+// Reset resets previous observations in h.
 func (h *PrometheusHistogram) Reset() {
 	h.mu.Lock()
 	for i := range h.buckets {
@@ -79,7 +79,7 @@ func (h *PrometheusHistogram) Update(v float64) {
 	h.buckets[bucketIdx]++
 }
 
-// NewPrometheusHistogram creates and returns new prometheus histogram with the given name.
+// NewPrometheusHistogram creates and returns new PrometheusHistogram with the given name.
 //
 // name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
@@ -93,7 +93,7 @@ func NewPrometheusHistogram(name string) *PrometheusHistogram {
 	return defaultSet.NewPrometheusHistogram(name)
 }
 
-// NewPrometheusHistogram creates and returns new prometheus histogram with the given name.
+// NewPrometheusHistogramExt creates and returns new PrometheusHistogram with the given name and upperBounds.
 //
 // name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
@@ -107,8 +107,8 @@ func NewPrometheusHistogramExt(name string, upperBounds []float64) *PrometheusHi
 	return defaultSet.NewPrometheusHistogramExt(name, upperBounds)
 }
 
-// GetOrCreateHistogram returns registered histogram with the given name
-// or creates new histogram if the registry doesn't contain histogram with
+// GetOrCreatePrometheusHistogram returns registered histogram with the given name
+// or creates a new histogram if the registry doesn't contain histogram with
 // the given name.
 //
 // name must be valid Prometheus-compatible metric with possible labels.
@@ -120,12 +120,12 @@ func NewPrometheusHistogramExt(name string, upperBounds []float64) *PrometheusHi
 //
 // The returned histogram is safe to use from concurrent goroutines.
 //
-// Performance tip: prefer NewHistogram instead of GetOrCreateHistogram.
+// Performance tip: prefer NewPrometheusHistogram instead of GetOrCreatePrometheusHistogram.
 func GetOrCreatePrometheusHistogram(name string) *PrometheusHistogram {
 	return defaultSet.GetOrCreatePrometheusHistogram(name)
 }
 
-// GetOrCreateHistogramExt returns registered histogram with the given name and
+// GetOrCreatePrometheusHistogramExt returns registered histogram with the given name and
 // upperBounds or creates new histogram if the registry doesn't contain histogram
 // with the given name.
 //
@@ -138,7 +138,7 @@ func GetOrCreatePrometheusHistogram(name string) *PrometheusHistogram {
 //
 // The returned histogram is safe to use from concurrent goroutines.
 //
-// Performance tip: prefer NewHistogram instead of GetOrCreateHistogram.
+// Performance tip: prefer NewPrometheusHistogramExt instead of GetOrCreatePrometheusHistogramExt.
 func GetOrCreatePrometheusHistogramExt(name string, upperBounds []float64) *PrometheusHistogram {
 	return defaultSet.GetOrCreatePrometheusHistogramExt(name, upperBounds)
 }
@@ -165,7 +165,7 @@ func mustValidateBuckets(upperBounds []float64) {
 
 func ValidateBuckets(upperBounds []float64) error {
 	if len(upperBounds) == 0 {
-		return fmt.Errorf("no upper bounds were given for the buckets")
+		return fmt.Errorf("upperBounds can't be empty")
 	}
 	for i := 0; i < len(upperBounds)-1; i++ {
 		if upperBounds[i] >= upperBounds[i+1] {

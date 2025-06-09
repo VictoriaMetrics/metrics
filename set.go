@@ -128,7 +128,7 @@ func (s *Set) GetOrCreateHistogram(name string) *Histogram {
 	return h
 }
 
-// NewPrometheusHistogram creates and returns new Prometheus histogram in s
+// NewPrometheusHistogram creates and returns new PrometheusHistogram in s
 // with the given name.
 //
 // name must be valid Prometheus-compatible metric with possible labels.
@@ -144,8 +144,8 @@ func (s *Set) NewPrometheusHistogram(name string) *PrometheusHistogram {
 }
 
 
-// NewPrometheusHistogram creates and returns new Prometheus histogram in s
-// with the given name and the given upper bounds for the upperBounds.
+// NewPrometheusHistogramExt creates and returns new PrometheusHistogram in s
+// with the given name and upperBounds.
 //
 // name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
@@ -192,7 +192,7 @@ func (s *Set) GetOrCreatePrometheusHistogram(name string) *PrometheusHistogram {
 //
 // The returned histogram is safe to use from concurrent goroutines.
 //
-// Performance tip: prefer NewPrometheusHistogram instead of GetOrCreatePrometheusHistogram.
+// Performance tip: prefer NewPrometheusHistogramExt instead of GetOrCreatePrometheusHistogramExt.
 func (s *Set) GetOrCreatePrometheusHistogramExt(name string, upperBounds []float64) *PrometheusHistogram {
 	s.mu.Lock()
 	nm := s.m[name]
@@ -217,7 +217,7 @@ func (s *Set) GetOrCreatePrometheusHistogramExt(name string, upperBounds []float
 	}
 	h, ok := nm.metric.(*PrometheusHistogram)
 	if !ok {
-		panic(fmt.Errorf("BUG: metric %q isn't a Histogram. It is %T", name, nm.metric))
+		panic(fmt.Errorf("BUG: metric %q isn't a PrometheusHistogram. It is %T", name, nm.metric))
 	}
 	return h
 }
