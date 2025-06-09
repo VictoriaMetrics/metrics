@@ -122,31 +122,27 @@ func TestPrometheusHistogramNonMonotonicBuckets(t *testing.T) {
 }
 
 func TestPrometheusHistogramWithTags(t *testing.T) {
-	name := `TestPrometheusHistogram{tag="foo"}`
-	h := NewPrometheusHistogram(name)
-	h.Update(123)
-
-	var bb bytes.Buffer
-	WritePrometheus(&bb, false)
-	result := bb.String()
-	namePrefixWithTag := `TestPrometheusHistogram_bucket{tag="foo",le="+Inf"} 1` + "\n"
-	if !strings.Contains(result, namePrefixWithTag) {
-		t.Fatalf("missing histogram %s in the WritePrometheus output; got\n%s", namePrefixWithTag, result)
+	f := func(expOutput string) {
+		t.Helper()
+		var bb bytes.Buffer
+		WritePrometheus(&bb, false)
+		result := bb.String()
+		if !strings.Contains(result, expOutput) {
+			t.Fatalf("missing histogram %s in the WritePrometheus output; got\n%s", expOutput, result)
+		}
 	}
-}
 
-func TestPrometheusHistogramWithEmptyTags(t *testing.T) {
-	name := `TestPrometheusHistogram{}`
-	h := NewPrometheusHistogram(name)
+	h := NewPrometheusHistogram(`TestPrometheusHistogram`)
 	h.Update(123)
+	f(`TestPrometheusHistogram_bucket{le="+Inf"} 1`)
+	f(`TestPrometheusHistogram_count 1`)
+	f(`TestPrometheusHistogram_sum 123`)
 
-	var bb bytes.Buffer
-	WritePrometheus(&bb, false)
-	result := bb.String()
-	namePrefixWithTag := `TestPrometheusHistogram_bucket{le="+Inf"} 1` + "\n"
-	if !strings.Contains(result, namePrefixWithTag) {
-		t.Fatalf("missing histogram %s in the WritePrometheus output; got\n%s", namePrefixWithTag, result)
-	}
+	h = NewPrometheusHistogram(`TestPrometheusHistogram{tag="foo"}`)
+	h.Update(123)
+	f(`TestPrometheusHistogram_bucket{tag="foo",le="+Inf"} 1`)
+	f(`TestPrometheusHistogram_count{tag="foo"} 1`)
+	f(`TestPrometheusHistogram_sum{tag="foo"} 123`)
 }
 
 func TestGetOrCreatePrometheusHistogramSerial(t *testing.T) {
