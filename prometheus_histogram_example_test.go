@@ -7,9 +7,9 @@ import (
 	"github.com/VictoriaMetrics/metrics"
 )
 
-func ExampleHistogram() {
+func ExamplePrometheusHistogram() {
 	// Define a histogram in global scope.
-	var h = metrics.NewHistogram(`request_duration_seconds{path="/foo/bar"}`)
+	h := metrics.NewPrometheusHistogram(`request_duration_seconds{path="/foo/bar"}`)
 
 	// Update the histogram with the duration of processRequest call.
 	startTime := time.Now()
@@ -17,7 +17,7 @@ func ExampleHistogram() {
 	h.UpdateDuration(startTime)
 }
 
-func ExampleHistogram_vec() {
+func ExamplePrometheusHistogram_vec() {
 	for i := 0; i < 3; i++ {
 		// Dynamically construct metric name and pass it to GetOrCreateHistogram.
 		name := fmt.Sprintf(`response_size_bytes{path=%q, code=%q}`, "/foo/bar", 200+i)

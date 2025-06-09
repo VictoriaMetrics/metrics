@@ -5,8 +5,12 @@ import (
 	"io"
 	"math"
 	"sync"
+	"time"
 )
 
+// PrometheusHistogramDefaultBuckets is a list of the default bucket upper
+// bounds. Those default buckets are quite generic, and it is recommended to
+// pick custom buckets for improved accuracy.
 var PrometheusHistogramDefaultBuckets = []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
 
 // PrometheusHistogram is a histogram for non-negative values with pre-defined buckets
@@ -14,7 +18,7 @@ var PrometheusHistogramDefaultBuckets = []float64{.005, .01, .025, .05, .1, .25,
 // Each bucket contains a counter for values in the given range.
 // Each bucket is exposed via the following metric:
 //
-//	<metric_name>_bucket{<optional_tags>,le="upper_bound"} <counter>
+// <metric_name>_bucket{<optional_tags>,le="upper_bound"} <counter>
 //
 // Where:
 //
@@ -23,7 +27,11 @@ var PrometheusHistogramDefaultBuckets = []float64{.005, .01, .025, .05, .1, .25,
 //   - <upper_bound> - upper bound of the current bucket. all samples <= upper_bound are in that bucket
 //   - <counter> - the number of hits to the given bucket during Update* calls
 //
-// Zero histogram is usable.
+// Next to the bucket metrics, two additional metrics track the total number of
+// samples (_count) and the total sum (_sum) of all samples.
+//
+// <metric_name>_sum{<optional_tags>} <counter>
+// <metric_name>_count{<optional_tags>} <counter>
 type PrometheusHistogram struct {
 	// Mu guarantees synchronous update for all the counters and sum.
 	//
@@ -31,6 +39,9 @@ type PrometheusHistogram struct {
 	// It only complicates the code.
 	mu sync.Mutex
 
+	// upperBounds and buckets are aligned by element position:
+	// upperBounds[i] defines the upper bound for buckets[i].
+	// buckets[i] contains the count of elements <= upperBounds[i]
 	upperBounds []float64
 	buckets     []uint64
 
@@ -77,6 +88,12 @@ func (h *PrometheusHistogram) Update(v float64) {
 		return
 	}
 	h.buckets[bucketIdx]++
+}
+
+// UpdateDuration updates request duration based on the given startTime.
+func (h *PrometheusHistogram) UpdateDuration(startTime time.Time) {
+	d := time.Since(startTime).Seconds()
+	h.Update(d)
 }
 
 // NewPrometheusHistogram creates and returns new PrometheusHistogram with the given name.
@@ -175,6 +192,9 @@ func ValidateBuckets(upperBounds []float64) error {
 	return nil
 }
 
+// LinearBuckets returns a slice containing `count` upper bounds to be used
+// with a prometheus histogram, and whose distribution is as follows:
+// [start, start + width, start + 2 * width, ... start + (count-1) * width]
 func LinearBuckets(start, width float64, count int) []float64 {
 	if count < 1 {
 		panic("LinearBuckets needs a positive count")

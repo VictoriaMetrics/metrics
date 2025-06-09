@@ -103,22 +103,21 @@ prefix_count 11
 
 // inspired from https://github.com/prometheus/client_golang/blob/main/prometheus/histogram_test.go
 func TestPrometheusHistogramNonMonotonicBuckets(t *testing.T) {
-	testCases := map[string][]float64{
-		"0 bucket is invalid":     {},
-		"not strictly monotonic":  {1, 2, 2, 3},
-		"not monotonic at all":    {1, 2, 4, 3, 5},
-		"have +Inf in the middle": {1, 2, math.Inf(+1), 3},
-	}
-	for name, buckets := range testCases {
-		func() {
-			defer func() {
-				if r := recover(); r == nil {
-					t.Errorf("Buckets %v are %s but NewPrometheusHistogram did not panic.", buckets, name)
-				}
-			}()
-			_ = NewPrometheusHistogramExt("test", buckets)
+	i := 0
+	f := func(name string, upperBounds []float64) {
+		t.Helper()
+		defer func() {
+			if r := recover(); r == nil {
+				t.Errorf("Buckets %v are %s but NewPrometheusHistogram did not panic.", upperBounds, name)
+			}
 		}()
+		_ = NewPrometheusHistogramExt(fmt.Sprintf("test_%d", i), upperBounds)
 	}
+
+	f("0 bucket is invalid", []float64{})
+	f("not strictly monotonic", []float64{1, 2, 2, 3})
+	f("not monotonic at all", []float64{1, 2, 4, 3, 5})
+	f("have +Inf in the middle", []float64{1, 2, math.Inf(+1), 3})
 }
 
 func TestPrometheusHistogramWithTags(t *testing.T) {
