@@ -1,0 +1,6 @@
+# HELP process_open_fds Number of open file descriptors
+# TYPE process_open_fds gauge
+process_open_fds 5
+# HELP process_max_fds Max. number of open file descriptors (soft limit)
+# TYPE process_max_fds gauge
+process_max_fds 65536
