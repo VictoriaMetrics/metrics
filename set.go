@@ -129,7 +129,7 @@ func (s *Set) GetOrCreateHistogram(name string) *Histogram {
 }
 
 // NewPrometheusHistogram creates and returns new PrometheusHistogram in s
-// with the given name.
+// with the given name and PrometheusHistogramDefaultBuckets.
 //
 // name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
@@ -142,7 +142,6 @@ func (s *Set) GetOrCreateHistogram(name string) *Histogram {
 func (s *Set) NewPrometheusHistogram(name string) *PrometheusHistogram {
 	return s.NewPrometheusHistogramExt(name, PrometheusHistogramDefaultBuckets)
 }
-
 
 // NewPrometheusHistogramExt creates and returns new PrometheusHistogram in s
 // with the given name and upperBounds.

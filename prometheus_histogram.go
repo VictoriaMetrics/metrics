@@ -22,18 +22,18 @@ var PrometheusHistogramDefaultBuckets = []float64{.005, .01, .025, .05, .1, .25,
 //
 // Where:
 //
-//   - <metric_name> is the metric name passed to NewHistogram
-//   - <optional_tags> is optional tags for the <metric_name>, which are passed to NewHistogram
+//   - <metric_name> is the metric name passed to NewPrometheusHistogram
+//   - <optional_tags> is optional tags for the <metric_name>, which are passed to NewPrometheusHistogram
 //   - <upper_bound> - upper bound of the current bucket. all samples <= upper_bound are in that bucket
 //   - <counter> - the number of hits to the given bucket during Update* calls
 //
 // Next to the bucket metrics, two additional metrics track the total number of
-// samples (_count) and the total sum (_sum) of all samples.
+// samples (_count) and the total sum (_sum) of all samples:
 //
-// <metric_name>_sum{<optional_tags>} <counter>
-// <metric_name>_count{<optional_tags>} <counter>
+//   - <metric_name>_sum{<optional_tags>} <counter>
+//   - <metric_name>_count{<optional_tags>} <counter>
 type PrometheusHistogram struct {
-	// Mu guarantees synchronous update for all the counters and sum.
+	// mu guarantees synchronous update for all the counters.
 	//
 	// Do not use sync.RWMutex, since it has zero sense from performance PoV.
 	// It only complicates the code.
@@ -58,7 +58,6 @@ func (h *PrometheusHistogram) Reset() {
 	for i := range h.buckets {
 		h.buckets[i] = 0
 	}
-
 	h.sum = 0
 	h.count = 0
 	h.mu.Unlock()
@@ -80,14 +79,15 @@ func (h *PrometheusHistogram) Update(v float64) {
 		}
 	}
 	h.mu.Lock()
-	defer h.mu.Unlock()
 	h.sum += v
 	h.count++
 	if bucketIdx == -1 {
 		// +Inf, nothing to do, already accounted for in the total sum
+		h.mu.Unlock()
 		return
 	}
 	h.buckets[bucketIdx]++
+	h.mu.Unlock()
 }
 
 // UpdateDuration updates request duration based on the given startTime.
@@ -96,7 +96,8 @@ func (h *PrometheusHistogram) UpdateDuration(startTime time.Time) {
 	h.Update(d)
 }
 
-// NewPrometheusHistogram creates and returns new PrometheusHistogram with the given name.
+// NewPrometheusHistogram creates and returns new PrometheusHistogram with the given name
+// and PrometheusHistogramDefaultBuckets.
 //
 // name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
@@ -110,7 +111,8 @@ func NewPrometheusHistogram(name string) *PrometheusHistogram {
 	return defaultSet.NewPrometheusHistogram(name)
 }
 
-// NewPrometheusHistogramExt creates and returns new PrometheusHistogram with the given name and upperBounds.
+// NewPrometheusHistogramExt creates and returns new PrometheusHistogram with the given name
+// and given upperBounds.
 //
 // name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
@@ -124,8 +126,8 @@ func NewPrometheusHistogramExt(name string, upperBounds []float64) *PrometheusHi
 	return defaultSet.NewPrometheusHistogramExt(name, upperBounds)
 }
 
-// GetOrCreatePrometheusHistogram returns registered histogram with the given name
-// or creates a new histogram if the registry doesn't contain histogram with
+// GetOrCreatePrometheusHistogram returns registered PrometheusHistogram with the given name
+// or creates a new PrometheusHistogram if the registry doesn't contain histogram with
 // the given name.
 //
 // name must be valid Prometheus-compatible metric with possible labels.
@@ -142,8 +144,8 @@ func GetOrCreatePrometheusHistogram(name string) *PrometheusHistogram {
 	return defaultSet.GetOrCreatePrometheusHistogram(name)
 }
 
-// GetOrCreatePrometheusHistogramExt returns registered histogram with the given name and
-// upperBounds or creates new histogram if the registry doesn't contain histogram
+// GetOrCreatePrometheusHistogramExt returns registered PrometheusHistogram with the given name and
+// upperBounds or creates new PrometheusHistogram if the registry doesn't contain histogram
 // with the given name.
 //
 // name must be valid Prometheus-compatible metric with possible labels.
@@ -180,6 +182,8 @@ func mustValidateBuckets(upperBounds []float64) {
 	}
 }
 
+// ValidateBuckets validates the given upperBounds and returns an error
+// if validation failed.
 func ValidateBuckets(upperBounds []float64) error {
 	if len(upperBounds) == 0 {
 		return fmt.Errorf("upperBounds can't be empty")
@@ -192,18 +196,47 @@ func ValidateBuckets(upperBounds []float64) error {
 	return nil
 }
 
-// LinearBuckets returns a slice containing `count` upper bounds to be used
-// with a prometheus histogram, and whose distribution is as follows:
-// [start, start + width, start + 2 * width, ... start + (count-1) * width]
+// LinearBuckets returns a list of upperBounds for PrometheusHistogram,
+// and whose distribution is as follows:
+//
+//	[start, start + width, start + 2 * width, ... start + (count-1) * width]
+//
+// Panics if given start, width and count produce negative buckets or none buckets at all.
 func LinearBuckets(start, width float64, count int) []float64 {
 	if count < 1 {
-		panic("LinearBuckets needs a positive count")
+		panic("LinearBuckets: count can't be less than 1")
 	}
 	upperBounds := make([]float64, count)
 	for i := range upperBounds {
 		upperBounds[i] = start
 		start += width
 	}
+	mustValidateBuckets(upperBounds)
+	return upperBounds
+}
+
+// ExponentialBuckets returns a list of upperBounds for PrometheusHistogram,
+// and whose distribution is as follows:
+//
+//	[start, start * factor pow 1, start * factor pow 2, ... start * factor pow (count-1)]
+//
+// Panics if given start, width and count produce negative buckets or none buckets at all.
+func ExponentialBuckets(start, factor float64, count int) []float64 {
+	if count < 1 {
+		panic("ExponentialBuckets: count can't be less than 1")
+	}
+	if factor <= 1 {
+		panic("ExponentialBuckets: factor must be greater than 1")
+	}
+	if start <= 0 {
+		panic("ExponentialBuckets: start can't be less than 0")
+	}
+	upperBounds := make([]float64, count)
+	for i := range upperBounds {
+		upperBounds[i] = start
+		start *= factor
+	}
+	mustValidateBuckets(upperBounds)
 	return upperBounds
 }
 
@@ -212,10 +245,6 @@ func (h *PrometheusHistogram) marshalTo(prefix string, w io.Writer) {
 	h.mu.Lock()
 	count := h.count
 	sum := h.sum
-	if count == 0 {
-		h.mu.Unlock()
-		return
-	}
 	for i, ub := range h.upperBounds {
 		cumulativeSum += h.buckets[i]
 		tag := fmt.Sprintf(`le="%v"`, ub)
