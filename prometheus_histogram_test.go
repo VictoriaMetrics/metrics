@@ -9,6 +9,19 @@ import (
 	"testing"
 )
 
+func TestPrometheusHistogramEmpty(t *testing.T) {
+	const expected string = `empty_bucket{le="1"} 0
+empty_bucket{le="2"} 0
+empty_bucket{le="4"} 0
+empty_bucket{le="+Inf"} 0
+empty_sum 0
+empty_count 0
+`
+	// histogram without registered observations should be still rendered
+	h := NewPrometheusHistogramExt("empty", []float64{1, 2, 4})
+	testMarshalTo(t, h, "empty", expected)
+}
+
 func TestPrometheusHistogramSerial(t *testing.T) {
 	const expected string = `prefix_bucket{le="0.005"} 1
 prefix_bucket{le="0.01"} 1
