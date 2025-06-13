@@ -85,6 +85,11 @@ func (s *Set) NewHistogram(name string) *Histogram {
 	s.registerMetric(name, h)
 	return h
 }
+func (s *Set) NewCompatibleHistogram(name string) *Histogram {
+	h := &Histogram{compatible: true}
+	s.registerMetric(name, h)
+	return h
+}
 
 // GetOrCreateHistogram returns registered histogram in s with the given name
 // or creates new histogram if s doesn't contain histogram with the given name.
@@ -111,6 +116,34 @@ func (s *Set) GetOrCreateHistogram(name string) *Histogram {
 		nmNew := &namedMetric{
 			name:   name,
 			metric: &Histogram{},
+		}
+		s.mu.Lock()
+		nm = s.m[name]
+		if nm == nil {
+			nm = nmNew
+			s.m[name] = nm
+			s.a = append(s.a, nm)
+		}
+		s.mu.Unlock()
+	}
+	h, ok := nm.metric.(*Histogram)
+	if !ok {
+		panic(fmt.Errorf("BUG: metric %q isn't a Histogram. It is %T", name, nm.metric))
+	}
+	return h
+}
+func (s *Set) GetOrCreateCompatibleHistogram(name string) *Histogram {
+	s.mu.Lock()
+	nm := s.m[name]
+	s.mu.Unlock()
+	if nm == nil {
+		// Slow path - create and register missing histogram.
+		if err := validateMetric(name); err != nil {
+			panic(fmt.Errorf("BUG: invalid metric name %q: %s", name, err))
+		}
+		nmNew := &namedMetric{
+			name:   name,
+			metric: &Histogram{compatible: true},
 		}
 		s.mu.Lock()
 		nm = s.m[name]
