@@ -74,7 +74,7 @@ process metrics related file descriptors for files we always need, and
 var pm_fd [FD_COUNT]int
 
 /*
-to avaid, that go closes the files in the background, which makes the FDs
+to avoid, that go closes the files in the background, which makes the FDs
 
 	above useless, we need to keep the reference to them as well
 */
