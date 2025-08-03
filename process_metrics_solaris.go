@@ -1,5 +1,4 @@
 //go:build solaris
-// +build solaris
 
 // Author: Jens Elkner (C) 2025
 
