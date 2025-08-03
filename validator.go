@@ -10,7 +10,7 @@ func validateMetric(s string) error {
 	if len(s) == 0 {
 		return fmt.Errorf("metric cannot be empty")
 	}
-	if strings.IndexByte(s, '\n') != -1 {
+	if strings.IndexByte(s, '\n') >= 0 {
 		return fmt.Errorf("metric cannot contain line breaks")
 	}
 	n := strings.IndexByte(s, '{')
