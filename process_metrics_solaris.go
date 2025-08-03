@@ -120,7 +120,7 @@ type psinfo_t struct {
 	/* right of the high-order bit (1.0 == 0x8000) */
 	pr_pctcpu ushort_t /* % of recent cpu time used by all lwps */
 	pr_pctmem ushort_t /* % of system memory used by process */
-	pr_dummy	int32	/* 8 byte alignment: GO doesn't do it automagically */
+	pr_dummy  int32    /* 8 byte alignment: GO doesn't do it automagically */
 	// 84 + 4 = 88
 	pr_start timestruc_t /* process start time, from the epoch */
 	pr_time  timestruc_t /* usr+sys cpu time for this process */
