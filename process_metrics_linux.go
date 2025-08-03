@@ -413,5 +413,8 @@ func getCgroupV2Path() string {
 	if len(tmp) != 2 {
 		return ""
 	}
-	return "/sys/fs/cgroup" + strings.TrimSpace(tmp[1])
+	path := "/sys/fs/cgroup" + strings.TrimSpace(tmp[1])
+
+	// Drop trailing slash if it exsits. This prevents from '//' in the constructed paths by the caller.
+	return strings.TrimSuffix(path, "/")
 }
