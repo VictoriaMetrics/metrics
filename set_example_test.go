@@ -3,10 +3,13 @@ package metrics_test
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/VictoriaMetrics/metrics"
 )
 
 func ExampleSet() {
+	metrics.ExposeMetadata(false)
+
 	// Create a set with a counter
 	s := metrics.NewSet()
 	sc := s.NewCounter("set_counter")

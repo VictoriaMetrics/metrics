@@ -175,6 +175,8 @@ func TestRegisterUnregister(t *testing.T) {
 }
 
 func TestExposeMetadata(t *testing.T) {
+	defer ExposeMetadata(false)
+
 	t.Run("not expose", func(t *testing.T) {
 		ExposeMetadata(false)
 		s := NewSet()
