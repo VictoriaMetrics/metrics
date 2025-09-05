@@ -1,7 +1,9 @@
 package metrics
 
 import (
+	"bytes"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -170,4 +172,58 @@ func TestRegisterUnregister(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+func TestExposeMetadata(t *testing.T) {
+	t.Run("not expose", func(t *testing.T) {
+		ExposeMetadata(false)
+		s := NewSet()
+
+		sc := s.NewCounter("set_counter")
+		sc.Inc()
+
+		var bb bytes.Buffer
+		s.WritePrometheus(&bb)
+		if strings.Contains(bb.String(), "# TYPE") {
+			t.Fatalf("metadata should not expose: %s", bb.String())
+		}
+	})
+
+	t.Run("expose", func(t *testing.T) {
+		ExposeMetadata(true)
+		s := NewSet()
+
+		sc := s.NewCounter("set_counter")
+		sc.Inc()
+
+		var bb bytes.Buffer
+		s.WritePrometheus(&bb)
+		if !strings.Contains(bb.String(), "# TYPE") {
+			t.Fatalf("metadata should expose: %s", bb.String())
+		}
+	})
+
+	t.Run("histogram and summary metadata expose w/o sample", func(t *testing.T) {
+		ExposeMetadata(true)
+		s := NewSet()
+		var bb bytes.Buffer
+
+		sh := s.NewHistogram("set_histogram")
+		ss := s.NewSummary("set_summary")
+
+		s.WritePrometheus(&bb)
+		if strings.Contains(bb.String(), "# TYPE") {
+			t.Fatalf("metadata should not expose without sample: %s", bb.String())
+		}
+
+		// add samples
+		sh.Update(0.1)
+		ss.Update(0.1)
+
+		bb.Reset()
+		s.WritePrometheus(&bb)
+		if !strings.Contains(bb.String(), "# TYPE set_histogram histogram") || !strings.Contains(bb.String(), "# TYPE set_summary summary") {
+			t.Fatalf("metadata should expose with sample: %s", bb.String())
+		}
+	})
 }
