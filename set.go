@@ -40,7 +40,7 @@ func (s *Set) WritePrometheus(w io.Writer) {
 		// special path for `summary`:
 		// - the regular sorting `s.a[i].name < s.a[j].name` will place sum and count in front of quantiles.
 		//
-		// sort by family name (`summary` vs `unsupported`) works well for such case.
+		// sort by metrics type (`summary` for quantile, vs `unsupported` for sum and count) works well for such case.
 		if getMetricFamily(s.a[i].name) == getMetricFamily(s.a[j].name) && s.a[i].metric.metricType() != s.a[j].metric.metricType() {
 			return s.a[i].metric.metricType() < s.a[j].metric.metricType()
 		}
