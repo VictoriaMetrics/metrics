@@ -120,7 +120,10 @@ func (sm *Summary) marshalTo(prefix string, w io.Writer) {
 }
 
 func (sm *Summary) metricType() string {
-	return "summary"
+	// this metricsType should not be printed, because quantile will be printed first.
+	// it's set to `unsupported`. when sorting by metricsType, `summary` will be placed before `unsupported`.
+	// See: https://github.com/VictoriaMetrics/metrics/pull/99
+	return "unsupported"
 }
 
 func splitMetricName(name string) (string, string) {
