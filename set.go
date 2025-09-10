@@ -37,15 +37,6 @@ func (s *Set) WritePrometheus(w io.Writer) {
 	// Collect all the metrics in in-memory buffer in order to prevent from long locking due to slow w.
 	var bb bytes.Buffer
 	lessFunc := func(i, j int) bool {
-		// special path for `summary`:
-		// - the regular sorting `s.a[i].name < s.a[j].name` will place sum and count in front of quantiles.
-		//
-		// sort by metrics type (`summary` for quantile, vs `unsupported` for sum and count) works well for such case.
-		if getMetricFamily(s.a[i].name) == getMetricFamily(s.a[j].name) && s.a[i].metric.metricType() != s.a[j].metric.metricType() {
-			return s.a[i].metric.metricType() < s.a[j].metric.metricType()
-		}
-
-		// normal path
 		return s.a[i].name < s.a[j].name
 	}
 	s.mu.Lock()
