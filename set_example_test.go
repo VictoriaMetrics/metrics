@@ -66,13 +66,13 @@ func ExampleExposeMetadata() {
 	// request_duration_seconds_count{path="/foo/bar"} 2
 	// # HELP response_size_bytes
 	// # TYPE response_size_bytes summary
+	// response_size_bytes_sum 1
+	// response_size_bytes_count 1
 	// response_size_bytes{quantile="0.5"} 1
 	// response_size_bytes{quantile="0.9"} 1
 	// response_size_bytes{quantile="0.97"} 1
 	// response_size_bytes{quantile="0.99"} 1
 	// response_size_bytes{quantile="1"} 1
-	// response_size_bytes_sum 1
-	// response_size_bytes_count 1
 	// # HELP set_counter
 	// # TYPE set_counter counter
 	// set_counter 1
