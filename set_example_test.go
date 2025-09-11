@@ -38,12 +38,13 @@ func ExampleExposeMetadata() {
 	s.NewGauge(`unused_bytes{foo="bar"}`, func() float64 { return 58 })
 	s.NewGauge(`used_bytes{foo="bar"}`, func() float64 { return 42 })
 	s.NewGauge(`used_bytes{foo="baz"}`, func() float64 { return 43 })
+	s.GetOrCreateGauge(`used_bytes`, func() float64 { return 44 })
 
 	h := s.NewHistogram(`request_duration_seconds{path="/foo/bar"}`)
 	h.Update(1)
 	h.Update(2)
 
-	s.NewSummary("response_size_bytes").Update(1)
+	s.GetOrCreateSummary("response_size_bytes").Update(1)
 
 	// response_size_bytes_extra_suffix name should verify that there are no collisions with response_size_bytes
 	s.NewSummary("response_size_bytes_extra_suffix").Update(1)
@@ -93,6 +94,7 @@ func ExampleExposeMetadata() {
 	// unused_bytes{foo="bar"} 58
 	// # HELP used_bytes
 	// # TYPE used_bytes gauge
+	// used_bytes 44
 	// used_bytes{foo="bar"} 42
 	// used_bytes{foo="baz"} 43
 	// # HELP vm_request_duration_seconds

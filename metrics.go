@@ -23,9 +23,10 @@ import (
 )
 
 type namedMetric struct {
-	name   string
-	metric metric
-	isAux  bool
+	name       string
+	metric     metric
+	sortingKey string
+	isAux      bool
 }
 
 type metric interface {
@@ -352,4 +353,12 @@ func getMetricFamily(metricName string) string {
 		return metricName
 	}
 	return metricName[:n]
+}
+
+func getMetricFamilAndLabels(metricName string) (string, string) {
+	n := strings.IndexByte(metricName, '{')
+	if n < 0 {
+		return metricName, ""
+	}
+	return metricName[:n], metricName[n:]
 }

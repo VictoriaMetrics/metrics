@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -37,24 +38,7 @@ func (s *Set) WritePrometheus(w io.Writer) {
 	// Collect all the metrics in in-memory buffer in order to prevent from long locking due to slow w.
 	var bb bytes.Buffer
 	lessFunc := func(i, j int) bool {
-		// the sorting must be stable.
-		// see edge cases why we can't simply do `s.a[i].name < s.a[j].name` here:
-		// https://github.com/VictoriaMetrics/metrics/pull/99#issuecomment-3277072175
-
-		// sort by metric family name first, to group the same metric family in one place.
-		fName1, fName2 := getMetricFamily(s.a[i].name), getMetricFamily(s.a[j].name)
-		if fName1 != fName2 {
-			return fName1 < fName2
-		}
-
-		// stabilize the order for summary and quantiles.
-		mType1, mType2 := s.a[i].metric.metricType(), s.a[j].metric.metricType()
-		if mType1 != mType2 {
-			return mType1 < mType2
-		}
-
-		// lastly by metric names, which is for quantiles and histogram buckets.
-		return s.a[i].name < s.a[j].name
+		return s.a[i].sortingKey < s.a[j].sortingKey
 	}
 	s.mu.Lock()
 	for _, sm := range s.summaries {
@@ -145,6 +129,7 @@ func (s *Set) GetOrCreateHistogram(name string) *Histogram {
 			name:   name,
 			metric: &Histogram{},
 		}
+		nmNew.sortingKey = getSortingKey(name, nmNew.metric.metricType())
 		s.mu.Lock()
 		nm = s.m[name]
 		if nm == nil {
@@ -238,6 +223,7 @@ func (s *Set) GetOrCreatePrometheusHistogramExt(name string, upperBounds []float
 			name:   name,
 			metric: newPrometheusHistogram(upperBounds),
 		}
+		nmNew.sortingKey = getSortingKey(name, nmNew.metric.metricType())
 		s.mu.Lock()
 		nm = s.m[name]
 		if nm == nil {
@@ -296,6 +282,7 @@ func (s *Set) GetOrCreateCounter(name string) *Counter {
 			name:   name,
 			metric: &Counter{},
 		}
+		nmNew.sortingKey = getSortingKey(name, nmNew.metric.metricType())
 		s.mu.Lock()
 		nm = s.m[name]
 		if nm == nil {
@@ -354,6 +341,7 @@ func (s *Set) GetOrCreateFloatCounter(name string) *FloatCounter {
 			name:   name,
 			metric: &FloatCounter{},
 		}
+		nmNew.sortingKey = getSortingKey(name, nmNew.metric.metricType())
 		s.mu.Lock()
 		nm = s.m[name]
 		if nm == nil {
@@ -419,6 +407,7 @@ func (s *Set) GetOrCreateGauge(name string, f func() float64) *Gauge {
 				f: f,
 			},
 		}
+		nmNew.sortingKey = getSortingKey(name, nmNew.metric.metricType())
 		s.mu.Lock()
 		nm = s.m[name]
 		if nm == nil {
@@ -523,6 +512,7 @@ func (s *Set) GetOrCreateSummaryExt(name string, window time.Duration, quantiles
 			name:   name,
 			metric: sm,
 		}
+		nmNew.sortingKey = getSortingKey(name, nmNew.metric.metricType())
 		s.mu.Lock()
 		nm = s.m[name]
 		if nm == nil {
@@ -577,9 +567,10 @@ func (s *Set) mustRegisterLocked(name string, m metric, isAux bool) {
 	nm, ok := s.m[name]
 	if !ok {
 		nm = &namedMetric{
-			name:   name,
-			metric: m,
-			isAux:  isAux,
+			name:       name,
+			metric:     m,
+			sortingKey: getSortingKey(name, m.metricType()),
+			isAux:      isAux,
 		}
 		s.m[name] = nm
 		s.a = append(s.a, nm)
@@ -698,4 +689,16 @@ func (s *Set) RegisterMetricsWriter(writeMetrics func(w io.Writer)) {
 	defer s.mu.Unlock()
 
 	s.metricsWriters = append(s.metricsWriters, writeMetrics)
+}
+
+// getSortingKey returns sorting key for a metric.
+// metricFamily:metricType:metricLabels
+// the sorting must be stable. see edge cases why we can't simply do `metricName[i] < metricName[j]` here:
+// https://github.com/VictoriaMetrics/metrics/pull/99#issuecomment-3277072175
+func getSortingKey(name, metricType string) string {
+	n := strings.IndexByte(name, '{')
+	if n < 0 {
+		return name + ":" + metricType + ":"
+	}
+	return name[:n] + ":" + metricType + ":" + name[n:]
 }
