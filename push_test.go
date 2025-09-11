@@ -241,3 +241,64 @@ func TestPushMetrics(t *testing.T) {
 		Headers: []string{"Foo: Bar", "baz:aaaa-bbb"},
 	}, "Baz: aaaa-bbb\r\nContent-Encoding: gzip\r\nContent-Type: text/plain\r\nFoo: Bar\r\n", "bar 42.12\nfoo 1234\n")
 }
+
+func TestPushMetricsOnShutdown(t *testing.T) {
+	f := func(s *Set, opts *PushOptions, expectedData string) {
+		t.Helper()
+
+		if opts == nil {
+			opts = &PushOptions{}
+		}
+		opts.DisableCompression = true
+		opts.PushOnShutdown = true
+
+		var reqData []byte
+		var reqErr error
+		doneCh := make(chan struct{})
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			reqData, reqErr = io.ReadAll(r.Body)
+			close(doneCh)
+		}))
+		defer srv.Close()
+		ctx, cancel := context.WithCancel(context.Background())
+		if err := s.InitPushWithOptions(ctx, srv.URL, time.Second*10, opts); err != nil {
+			t.Fatalf("unexpected error: %s", err)
+		}
+		// calling cancel should make the last push and shutdown background metrics reporting
+		// so at least one request should land to srv.UR
+		cancel()
+
+		select {
+		case <-time.After(1 * time.Second):
+			t.Fatalf("timeout!")
+		case <-doneCh:
+		}
+		if reqErr != nil {
+			t.Fatalf("unexpected error: %s", reqErr)
+		}
+		if string(reqData) != expectedData {
+			t.Fatalf("unexpected data; got\n%s\nwant\n%s", reqData, expectedData)
+		}
+	}
+
+	s := NewSet()
+	c := s.NewCounter("foo")
+	c.Set(1234)
+	_ = s.NewGauge("bar", func() float64 {
+		return 42.12
+	})
+
+	// nil PushOptions
+	f(s, nil, "bar 42.12\nfoo 1234\n")
+
+	s = NewSet()
+	c = s.NewCounter("foo")
+	c.Set(1234)
+	_ = s.NewGauge("bar", func() float64 {
+		return 42.12
+	})
+	// Add extra labels
+	f(s, &PushOptions{
+		ExtraLabels: `label1="value1",label2="value2"`,
+	}, `bar{label1="value1",label2="value2"} 42.12`+"\n"+`foo{label1="value1",label2="value2"} 1234`+"\n")
+}

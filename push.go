@@ -37,6 +37,9 @@ type PushOptions struct {
 	// By default the Method is GET.
 	Method string
 
+	// Whether to push metrics on graceful shutdown
+	PushOnShutdown bool
+
 	// Optional WaitGroup for waiting until all the push workers created with this WaitGroup are stopped.
 	WaitGroup *sync.WaitGroup
 }
@@ -219,7 +222,9 @@ func InitPushExtWithOptions(ctx context.Context, pushURL string, interval time.D
 	pushMetricsSet.GetOrCreateFloatCounter(fmt.Sprintf(`metrics_push_interval_seconds{url=%q}`, pc.pushURLRedacted)).Set(interval.Seconds())
 
 	var wg *sync.WaitGroup
+	var pushOnShutdown bool
 	if opts != nil {
+		pushOnShutdown = opts.PushOnShutdown
 		wg = opts.WaitGroup
 		if wg != nil {
 			wg.Add(1)
@@ -239,6 +244,14 @@ func InitPushExtWithOptions(ctx context.Context, pushURL string, interval time.D
 					log.Printf("ERROR: metrics.push: %s", err)
 				}
 			case <-stopCh:
+				if pushOnShutdown {
+					ctxShutdown, cancel := context.WithTimeout(context.Background(), interval)
+					err := pc.pushMetrics(ctxShutdown, writeMetrics)
+					cancel()
+					if err != nil {
+						log.Printf("ERROR: metrics.push on shutdown: %s", err)
+					}
+				}
 				if wg != nil {
 					wg.Done()
 				}
