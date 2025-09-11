@@ -200,9 +200,8 @@ func (qv *quantileValue) marshalTo(prefix string, w io.Writer) {
 	}
 }
 
-func (qv *quantileValue) metricType() string {
-	return "unsupported"
-}
+// metricType is empty for quantile, as it belongs to Summary
+func (qv *quantileValue) metricType() string { return "" }
 
 func addTag(name, tag string) string {
 	if len(name) == 0 || name[len(name)-1] != '}' {

@@ -36,32 +36,57 @@ func NewSet() *Set {
 func (s *Set) WritePrometheus(w io.Writer) {
 	// Collect all the metrics in in-memory buffer in order to prevent from long locking due to slow w.
 	var bb bytes.Buffer
-	lessFunc := func(i, j int) bool {
-		return s.a[i].name < s.a[j].name
-	}
+	// group metrics by metricFamily to achieve consistent sorting
+	metricsByFamily := make(map[string][]*namedMetric)
+
 	s.mu.Lock()
 	for _, sm := range s.summaries {
 		sm.updateQuantiles()
 	}
-	if !sort.SliceIsSorted(s.a, lessFunc) {
-		sort.Slice(s.a, lessFunc)
+	for _, nm := range s.m {
+		name := getMetricFamily(nm.name)
+		metricsByFamily[name] = append(metricsByFamily[name], nm)
 	}
-	sa := append([]*namedMetric(nil), s.a...)
 	metricsWriters := s.metricsWriters
 	s.mu.Unlock()
 
-	prevMetricFamily := ""
-	for _, nm := range sa {
-		metricFamily := getMetricFamily(nm.name)
-		if metricFamily != prevMetricFamily {
-			// write meta info only once per metric family
-			metricType := nm.metric.metricType()
-			WriteMetadataIfNeeded(&bb, nm.name, metricType)
-			prevMetricFamily = metricFamily
+	// sort families
+	families := make([]string, 0, len(metricsByFamily))
+	for family := range metricsByFamily {
+		families = append(families, family)
+	}
+	sort.Strings(families)
+
+	var metricsWithMetadataBuf bytes.Buffer
+	for _, family := range families {
+		nms := metricsByFamily[family]
+		sort.Slice(nms, func(i, j int) bool {
+			return nms[i].name < nms[j].name
+		})
+		if isMetadataEnabled() {
+			// try marshaling metrics to a temporary buffer first
+			metricsWithMetadataBuf.Reset()
+			var metricType string
+			for _, nm := range nms {
+				// Call marshalTo without the global lock, since certain metric types such as Gauge
+				// can call a callback, which, in turn, can try calling s.mu.Lock again.
+				nm.metric.marshalTo(nm.name, &metricsWithMetadataBuf)
+				if metricType == "" {
+					metricType = nm.metric.metricType()
+				}
+			}
+			// add metadata lines only if metrics produced any output
+			if metricsWithMetadataBuf.Len() > 0 {
+				writeMetadata(&bb, family, metricType)
+				bb.Write(metricsWithMetadataBuf.Bytes())
+			}
+			continue
 		}
-		// Call marshalTo without the global lock, since certain metric types such as Gauge
-		// can call a callback, which, in turn, can try calling s.mu.Lock again.
-		nm.metric.marshalTo(nm.name, &bb)
+		for _, nm := range nms {
+			// Call marshalTo without the global lock, since certain metric types such as Gauge
+			// can call a callback, which, in turn, can try calling s.mu.Lock again.
+			nm.metric.marshalTo(nm.name, &bb)
+		}
 	}
 	w.Write(bb.Bytes())
 
