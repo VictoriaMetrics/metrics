@@ -66,29 +66,34 @@ func (s *Set) WritePrometheus(w io.Writer) {
 	metricsWriters := s.metricsWriters
 	s.mu.Unlock()
 
-	prevMetricFamily := ""
-
-	// metricsBuf is used to hold marshalTo temporary, and decide whether metadata is needed.
+	// metricsWithMetadataBuf is used to hold marshalTo temporary, and decide whether metadata is needed.
 	// it will be written to `bb` at the end and then reset for next *namedMetric in for-loop.
-	var metricBuf bytes.Buffer
+	var metricsWithMetadataBuf bytes.Buffer
+	var prevMetricFamily string
 	for _, nm := range sa {
+		if !isMetadataEnabled() {
+			// Call marshalTo without the global lock, since certain metric types such as Gauge
+			// can call a callback, which, in turn, can try calling s.mu.Lock again.
+			nm.metric.marshalTo(nm.name, &bb)
+			continue
+		}
+
+		metricsWithMetadataBuf.Reset()
 		// Call marshalTo without the global lock, since certain metric types such as Gauge
 		// can call a callback, which, in turn, can try calling s.mu.Lock again.
-		nm.metric.marshalTo(nm.name, &metricBuf)
-		if metricBuf.Len() == 0 {
+		nm.metric.marshalTo(nm.name, &metricsWithMetadataBuf)
+		if metricsWithMetadataBuf.Len() == 0 {
 			continue
 		}
 
 		metricFamily := getMetricFamily(nm.name)
 		if metricFamily != prevMetricFamily {
-			// write meta info only once per metric family
+			// write metadata only once per metric family
 			metricType := nm.metric.metricType()
-			WriteMetadataIfNeeded(&bb, nm.name, metricType)
+			writeMetadata(&bb, metricFamily, metricType)
 			prevMetricFamily = metricFamily
 		}
-
-		bb.Write(metricBuf.Bytes())
-		metricBuf.Reset()
+		bb.Write(metricsWithMetadataBuf.Bytes())
 	}
 	w.Write(bb.Bytes())
 

@@ -33,8 +33,7 @@ func ExampleExposeMetadata() {
 
 	s := metrics.NewSet()
 
-	sc := s.NewCounter("set_counter")
-	sc.Inc()
+	s.NewCounter("set_counter").Inc()
 
 	s.NewGauge(`unused_bytes{foo="bar"}`, func() float64 { return 58 })
 	s.NewGauge(`used_bytes{foo="bar"}`, func() float64 { return 42 })
@@ -44,13 +43,16 @@ func ExampleExposeMetadata() {
 	h.Update(1)
 	h.Update(2)
 
+	s.NewSummary("response_size_bytes").Update(1)
+
+	// response_size_bytes_extra_suffix name should verify that there are no collisions with response_size_bytes
+	s.NewSummary("response_size_bytes_extra_suffix").Update(1)
+
 	// This summary should not exist in the output, same goes to its metadata.
 	s.NewSummary(`test_summary_without_sample`)
 
-	// These summaries and metadata should exist in the output.
-	// The order for all summary metrics MUST be consistent: sum, count, quantile(s).
-	s.NewSummary("response_size_bytes").Update(1)
-	s.NewSummary(`response_size_bytes_with_label{a="1"}`).Update(1)
+	// This summary will have quantiles printed before _sum/_count metrics
+	s.NewSummary(`vm_request_duration_seconds{path="/api/v1/query_range"}`).Update(1)
 
 	// Dump metrics from s.
 	var bb bytes.Buffer
@@ -74,15 +76,15 @@ func ExampleExposeMetadata() {
 	// response_size_bytes{quantile="0.97"} 1
 	// response_size_bytes{quantile="0.99"} 1
 	// response_size_bytes{quantile="1"} 1
-	// # HELP response_size_bytes_with_label
-	// # TYPE response_size_bytes_with_label summary
-	// response_size_bytes_with_label_sum{a="1"} 1
-	// response_size_bytes_with_label_count{a="1"} 1
-	// response_size_bytes_with_label{a="1",quantile="0.5"} 1
-	// response_size_bytes_with_label{a="1",quantile="0.9"} 1
-	// response_size_bytes_with_label{a="1",quantile="0.97"} 1
-	// response_size_bytes_with_label{a="1",quantile="0.99"} 1
-	// response_size_bytes_with_label{a="1",quantile="1"} 1
+	// # HELP response_size_bytes_extra_suffix
+	// # TYPE response_size_bytes_extra_suffix summary
+	// response_size_bytes_extra_suffix_sum 1
+	// response_size_bytes_extra_suffix_count 1
+	// response_size_bytes_extra_suffix{quantile="0.5"} 1
+	// response_size_bytes_extra_suffix{quantile="0.9"} 1
+	// response_size_bytes_extra_suffix{quantile="0.97"} 1
+	// response_size_bytes_extra_suffix{quantile="0.99"} 1
+	// response_size_bytes_extra_suffix{quantile="1"} 1
 	// # HELP set_counter
 	// # TYPE set_counter counter
 	// set_counter 1
@@ -93,4 +95,13 @@ func ExampleExposeMetadata() {
 	// # TYPE used_bytes gauge
 	// used_bytes{foo="bar"} 42
 	// used_bytes{foo="baz"} 43
+	// # HELP vm_request_duration_seconds
+	// # TYPE vm_request_duration_seconds summary
+	// vm_request_duration_seconds_sum{path="/api/v1/query_range"} 1
+	// vm_request_duration_seconds_count{path="/api/v1/query_range"} 1
+	// vm_request_duration_seconds{path="/api/v1/query_range",quantile="0.5"} 1
+	// vm_request_duration_seconds{path="/api/v1/query_range",quantile="0.9"} 1
+	// vm_request_duration_seconds{path="/api/v1/query_range",quantile="0.97"} 1
+	// vm_request_duration_seconds{path="/api/v1/query_range",quantile="0.99"} 1
+	// vm_request_duration_seconds{path="/api/v1/query_range",quantile="1"} 1
 }
