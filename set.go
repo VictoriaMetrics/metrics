@@ -36,7 +36,7 @@ func NewSet() *Set {
 func (s *Set) WritePrometheus(w io.Writer) {
 	// Collect all the metrics in in-memory buffer in order to prevent from long locking due to slow w.
 	var bb bytes.Buffer
-	// group metrics by metricFamily to achieve consistent sorting
+	// group metrics by metric family to achieve consistent sorting
 	metricsByFamily := make(map[string][]*namedMetric)
 
 	s.mu.Lock()
@@ -50,7 +50,7 @@ func (s *Set) WritePrometheus(w io.Writer) {
 	metricsWriters := s.metricsWriters
 	s.mu.Unlock()
 
-	// sort families
+	// sort by family name for consistent output
 	families := make([]string, 0, len(metricsByFamily))
 	for family := range metricsByFamily {
 		families = append(families, family)
@@ -75,7 +75,7 @@ func (s *Set) WritePrometheus(w io.Writer) {
 					metricType = nm.metric.metricType()
 				}
 			}
-			// add metadata lines only if metrics produced any output
+			// add metadata lines only if metrics marshaling produced any output
 			if metricsWithMetadataBuf.Len() > 0 {
 				writeMetadata(&bb, family, metricType)
 				bb.Write(metricsWithMetadataBuf.Bytes())
