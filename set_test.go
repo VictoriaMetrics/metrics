@@ -114,8 +114,8 @@ func TestSetUnregisterMetric(t *testing.T) {
 	if len(s.m) != 0 {
 		t.Fatalf("expected metrics map to be empty; got %d elements", len(s.m))
 	}
-	if len(s.a) != 0 {
-		t.Fatalf("expected metrics list to be empty; got %d elements", len(s.a))
+	if len(s.mfs) != 0 {
+		t.Fatalf("expected metrics list to be empty; got %d elements", len(s.mfs))
 	}
 
 	// Validate metrics are removed

@@ -15,8 +15,9 @@ import (
 //
 // Set.WritePrometheus must be called for exporting metrics from the set.
 type Set struct {
-	mu        sync.Mutex
-	a         []*namedMetric
+	mu sync.Mutex
+	// mfs is a map of metric families to metrics
+	mfs       map[string][]*namedMetric
 	m         map[string]*namedMetric
 	summaries []*Summary
 
@@ -28,38 +29,41 @@ type Set struct {
 // Pass the set to RegisterSet() function in order to export its metrics via global WritePrometheus() call.
 func NewSet() *Set {
 	return &Set{
-		m: make(map[string]*namedMetric),
+		mfs: make(map[string][]*namedMetric),
+		m:   make(map[string]*namedMetric),
 	}
 }
 
 // WritePrometheus writes all the metrics from s to w in Prometheus format.
 func (s *Set) WritePrometheus(w io.Writer) {
+	type family struct {
+		name    string
+		metrics []*namedMetric
+	}
+	var families []family
+
 	// Collect all the metrics in in-memory buffer in order to prevent from long locking due to slow w.
 	var bb bytes.Buffer
-	// group metrics by metric family to achieve consistent sorting
-	metricsByFamily := make(map[string][]*namedMetric)
-
 	s.mu.Lock()
 	for _, sm := range s.summaries {
 		sm.updateQuantiles()
 	}
-	for _, nm := range s.m {
-		name := getMetricFamily(nm.name)
-		metricsByFamily[name] = append(metricsByFamily[name], nm)
+	for f, nms := range s.mfs {
+		families = append(families, family{
+			name:    f,
+			metrics: nms,
+		})
 	}
 	metricsWriters := s.metricsWriters
 	s.mu.Unlock()
 
-	// sort by family name for consistent output
-	families := make([]string, 0, len(metricsByFamily))
-	for family := range metricsByFamily {
-		families = append(families, family)
-	}
-	sort.Strings(families)
+	sort.Slice(families, func(i, j int) bool {
+		return families[i].name < families[j].name
+	})
 
 	var metricsWithMetadataBuf bytes.Buffer
-	for _, family := range families {
-		nms := metricsByFamily[family]
+	for _, f := range families {
+		nms := f.metrics
 		sort.Slice(nms, func(i, j int) bool {
 			return nms[i].name < nms[j].name
 		})
@@ -77,7 +81,7 @@ func (s *Set) WritePrometheus(w io.Writer) {
 			}
 			// add metadata lines only if metrics marshaling produced any output
 			if metricsWithMetadataBuf.Len() > 0 {
-				writeMetadata(&bb, family, metricType)
+				writeMetadata(&bb, f.name, metricType)
 				bb.Write(metricsWithMetadataBuf.Bytes())
 			}
 			continue
@@ -93,6 +97,15 @@ func (s *Set) WritePrometheus(w io.Writer) {
 	for _, writeMetrics := range metricsWriters {
 		writeMetrics(w)
 	}
+}
+
+// createMetricLocked adds nm to the list of metrics
+func (s *Set) createMetricLocked(name string, nm *namedMetric) {
+	s.m[name] = nm
+	mf := getMetricFamily(name)
+	nms := s.mfs[mf]
+	nms = append(nms, nm)
+	s.mfs[mf] = nms
 }
 
 // NewHistogram creates and returns new histogram in s with the given name.
@@ -141,8 +154,7 @@ func (s *Set) GetOrCreateHistogram(name string) *Histogram {
 		nm = s.m[name]
 		if nm == nil {
 			nm = nmNew
-			s.m[name] = nm
-			s.a = append(s.a, nm)
+			s.createMetricLocked(name, nm)
 		}
 		s.mu.Unlock()
 	}
@@ -234,8 +246,7 @@ func (s *Set) GetOrCreatePrometheusHistogramExt(name string, upperBounds []float
 		nm = s.m[name]
 		if nm == nil {
 			nm = nmNew
-			s.m[name] = nm
-			s.a = append(s.a, nm)
+			s.createMetricLocked(name, nm)
 		}
 		s.mu.Unlock()
 	}
@@ -292,8 +303,7 @@ func (s *Set) GetOrCreateCounter(name string) *Counter {
 		nm = s.m[name]
 		if nm == nil {
 			nm = nmNew
-			s.m[name] = nm
-			s.a = append(s.a, nm)
+			s.createMetricLocked(name, nm)
 		}
 		s.mu.Unlock()
 	}
@@ -350,8 +360,7 @@ func (s *Set) GetOrCreateFloatCounter(name string) *FloatCounter {
 		nm = s.m[name]
 		if nm == nil {
 			nm = nmNew
-			s.m[name] = nm
-			s.a = append(s.a, nm)
+			s.createMetricLocked(name, nm)
 		}
 		s.mu.Unlock()
 	}
@@ -415,8 +424,7 @@ func (s *Set) GetOrCreateGauge(name string, f func() float64) *Gauge {
 		nm = s.m[name]
 		if nm == nil {
 			nm = nmNew
-			s.m[name] = nm
-			s.a = append(s.a, nm)
+			s.createMetricLocked(name, nm)
 		}
 		s.mu.Unlock()
 	}
@@ -519,8 +527,7 @@ func (s *Set) GetOrCreateSummaryExt(name string, window time.Duration, quantiles
 		nm = s.m[name]
 		if nm == nil {
 			nm = nmNew
-			s.m[name] = nm
-			s.a = append(s.a, nm)
+			s.createMetricLocked(name, nm)
 			registerSummaryLocked(sm)
 			s.registerSummaryQuantilesLocked(name, sm)
 		}
@@ -574,7 +581,8 @@ func (s *Set) mustRegisterLocked(name string, m metric, isAux bool) {
 			isAux:  isAux,
 		}
 		s.m[name] = nm
-		s.a = append(s.a, nm)
+		mf := getMetricFamily(name)
+		s.mfs[mf] = append(s.mfs[mf], nm)
 	}
 	if ok {
 		panic(fmt.Errorf("BUG: metric %q is already registered", name))
@@ -606,9 +614,17 @@ func (s *Set) unregisterMetricLocked(nm *namedMetric) bool {
 	delete(s.m, name)
 
 	deleteFromList := func(metricName string) {
-		for i, nm := range s.a {
+		mf := getMetricFamily(metricName)
+		nms := s.mfs[mf]
+		for i, nm := range nms {
 			if nm.name == metricName {
-				s.a = append(s.a[:i], s.a[i+1:]...)
+				if len(nms) == 1 {
+					// if it is the last element to delete, then we drop the whole family
+					delete(s.mfs, mf)
+					return
+				}
+				nms = append(nms[:i], nms[i+1:]...)
+				s.mfs[mf] = nms
 				return
 			}
 		}
