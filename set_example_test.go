@@ -47,9 +47,10 @@ func ExampleExposeMetadata() {
 	// This summary should not exist in the output, same goes to its metadata.
 	s.NewSummary(`test_summary_without_sample`)
 
-	// This summary and metadata should exist in the output.
-	// The order for summary metrics must be: quantile(s), sum, count.
+	// These summaries and metadata should exist in the output.
+	// The order for all summary metrics MUST be consistent: sum, count, quantile(s).
 	s.NewSummary("response_size_bytes").Update(1)
+	s.NewSummary(`response_size_bytes_with_label{a="1"}`).Update(1)
 
 	// Dump metrics from s.
 	var bb bytes.Buffer
@@ -73,6 +74,15 @@ func ExampleExposeMetadata() {
 	// response_size_bytes{quantile="0.97"} 1
 	// response_size_bytes{quantile="0.99"} 1
 	// response_size_bytes{quantile="1"} 1
+	// # HELP response_size_bytes_with_label
+	// # TYPE response_size_bytes_with_label summary
+	// response_size_bytes_with_label_sum{a="1"} 1
+	// response_size_bytes_with_label_count{a="1"} 1
+	// response_size_bytes_with_label{a="1",quantile="0.5"} 1
+	// response_size_bytes_with_label{a="1",quantile="0.9"} 1
+	// response_size_bytes_with_label{a="1",quantile="0.97"} 1
+	// response_size_bytes_with_label{a="1",quantile="0.99"} 1
+	// response_size_bytes_with_label{a="1",quantile="1"} 1
 	// # HELP set_counter
 	// # TYPE set_counter counter
 	// set_counter 1
