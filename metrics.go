@@ -355,7 +355,7 @@ func getMetricFamily(metricName string) string {
 	return metricName[:n]
 }
 
-func getMetricFamilAndLabels(metricName string) (string, string) {
+func getMetricFamilyAndLabels(metricName string) (string, string) {
 	n := strings.IndexByte(metricName, '{')
 	if n < 0 {
 		return metricName, ""
