@@ -47,9 +47,12 @@ func (s *Set) WritePrometheus(w io.Writer) {
 			return fName1 < fName2
 		}
 
+		mType1 := s.a[i].metric.metricType()
+		mType2 := s.a[j].metric.metricType()
+
 		// stabilize the order for summary and quantiles.
-		if s.a[i].metric.metricType() != s.a[j].metric.metricType() {
-			return s.a[i].metric.metricType() < s.a[j].metric.metricType()
+		if mType1 != mType2 {
+			return mType1 < mType2
 		}
 
 		// lastly by metric names, which is for quantiles and histogram buckets.
