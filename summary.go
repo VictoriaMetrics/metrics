@@ -124,6 +124,7 @@ func (sm *Summary) metricType() string {
 	// of the same metric family will be printed after quantile(s).
 	// If metadata is needed, the metadata from quantile(s) should be used.
 	// quantile will be printed first, so its metrics type won't be printed as metadata.
+	// Printing quantiles before sum and count aligns this code with Prometheus behavior.
 	// See: https://github.com/VictoriaMetrics/metrics/pull/99
 	return "unsupported"
 }
