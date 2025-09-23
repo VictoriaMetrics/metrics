@@ -69,22 +69,22 @@ func ExampleExposeMetadata() {
 	// request_duration_seconds_count{path="/foo/bar"} 2
 	// # HELP response_size_bytes
 	// # TYPE response_size_bytes summary
-	// response_size_bytes_sum 1
-	// response_size_bytes_count 1
 	// response_size_bytes{quantile="0.5"} 1
 	// response_size_bytes{quantile="0.9"} 1
 	// response_size_bytes{quantile="0.97"} 1
 	// response_size_bytes{quantile="0.99"} 1
 	// response_size_bytes{quantile="1"} 1
+	// response_size_bytes_sum 1
+	// response_size_bytes_count 1
 	// # HELP response_size_bytes_extra_suffix
 	// # TYPE response_size_bytes_extra_suffix summary
-	// response_size_bytes_extra_suffix_sum 1
-	// response_size_bytes_extra_suffix_count 1
 	// response_size_bytes_extra_suffix{quantile="0.5"} 1
 	// response_size_bytes_extra_suffix{quantile="0.9"} 1
 	// response_size_bytes_extra_suffix{quantile="0.97"} 1
 	// response_size_bytes_extra_suffix{quantile="0.99"} 1
 	// response_size_bytes_extra_suffix{quantile="1"} 1
+	// response_size_bytes_extra_suffix_sum 1
+	// response_size_bytes_extra_suffix_count 1
 	// # HELP set_counter
 	// # TYPE set_counter counter
 	// set_counter 1
@@ -97,11 +97,11 @@ func ExampleExposeMetadata() {
 	// used_bytes{foo="baz"} 43
 	// # HELP vm_request_duration_seconds
 	// # TYPE vm_request_duration_seconds summary
-	// vm_request_duration_seconds_sum{path="/api/v1/query_range"} 1
-	// vm_request_duration_seconds_count{path="/api/v1/query_range"} 1
 	// vm_request_duration_seconds{path="/api/v1/query_range",quantile="0.5"} 1
 	// vm_request_duration_seconds{path="/api/v1/query_range",quantile="0.9"} 1
 	// vm_request_duration_seconds{path="/api/v1/query_range",quantile="0.97"} 1
 	// vm_request_duration_seconds{path="/api/v1/query_range",quantile="0.99"} 1
 	// vm_request_duration_seconds{path="/api/v1/query_range",quantile="1"} 1
+	// vm_request_duration_seconds_sum{path="/api/v1/query_range"} 1
+	// vm_request_duration_seconds_count{path="/api/v1/query_range"} 1
 }
