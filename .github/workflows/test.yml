@@ -1,31 +1,40 @@
-name: main
+name: test
+
 on:
   - push
   - pull_request
+
+permissions:
+  contents: read
+
+concurrency:
+  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+
 jobs:
-  build:
-    name: Build
+  test:
+    name: test
     runs-on: ubuntu-latest
     steps:
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: oldstable
-        id: go
       - name: Code checkout
         uses: actions/checkout@v6
+
+      - name: Setup Go
+        id: go
+        uses: actions/setup-go@v6
+        with:
+          cache-dependency-path: |
+            go.sum
+          go-version-file: 'go.mod'
+
+      - run: go version
+
       - name: Test
         run: |
           go test -v ./... -coverprofile=coverage.txt -covermode=atomic
           GOARCH=386 go test ./... -coverprofile=coverage.txt -covermode=atomic
           go test -v ./... -race
-      - name: Build
-        run: |
-          GOOS=linux go build
-          GOOS=darwin go build
-          GOOS=freebsd go build
-          GOOS=windows go build
-          GOARCH=386 go build
+
       - name: Publish coverage
         uses: codecov/codecov-action@v5
         with:
