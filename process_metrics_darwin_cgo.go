@@ -3,7 +3,7 @@
 package metrics
 
 /*
-int get_memory_info(unsigned long long *rss, unsigned long long *vs);
+int vm_get_memory_info(unsigned long long *rss, unsigned long long *vs);
 */
 import "C"
 
@@ -14,7 +14,7 @@ import (
 func getMemory() (*memoryInfo, error) {
 	var rss, vsize C.ulonglong
 
-	if err := C.get_memory_info(&rss, &vsize); err != 0 {
+	if err := C.vm_get_memory_info(&rss, &vsize); err != 0 {
 		return nil, fmt.Errorf("task_info() failed with 0x%x", int(err))
 	}
 

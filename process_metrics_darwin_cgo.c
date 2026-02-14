@@ -26,7 +26,7 @@
 #define SHARED_TEXT_REGION_SIZE         0x10000000
 
 
-int get_memory_info(unsigned long long *rss, unsigned long long *vsize)
+int vm_get_memory_info(unsigned long long *rss, unsigned long long *vsize)
 {
     // This is lightly adapted from how ps(1) obtains its memory info.
     // https://github.com/apple-oss-distributions/adv_cmds/blob/8744084ea0ff41ca4bb96b0f9c22407d0e48e9b7/ps/tasks.c#L109
