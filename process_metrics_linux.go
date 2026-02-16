@@ -427,10 +427,10 @@ type cpuThrottleMetrics struct {
 }
 
 func getCgroupCpuStats() (*cpuThrottleMetrics, error) {
-	if cgroupCpuControllerPath == "" {
+	if cgroupCpuStatPath == "" {
 		return nil, nil
 	}
-	data, err := ioutil.ReadFile(cgroupCpuControllerPath)
+	data, err := ioutil.ReadFile(cgroupCpuStatPath)
 	if err != nil {
 		return nil, err
 	}
