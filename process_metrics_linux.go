@@ -471,6 +471,10 @@ func writeProcessCpuThrottleMetrics(w io.Writer) {
 		log.Printf("ERROR: metrics: cannot determine cpu.stat: %s", err)
 		return
 	}
+	if ctms == nil {
+		// cgroup or cpu controller is not enabled, so do not expose cpu throttle metrics.
+		return
+	}
 	WriteGaugeUint64(w, "process_cgroup_cpu_periods_total", ctms.nrPeriods)
 	WriteGaugeUint64(w, "process_cgroup_cpu_throttled_periods_total", ctms.nrThrottled)
 	WriteGaugeUint64(w, "process_cgroup_cpu_throttled_seconds_total", ctms.throttledTime)
