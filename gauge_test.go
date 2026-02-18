@@ -67,10 +67,10 @@ func TestGaugeIncDecConcurrenc(t *testing.T) {
 
 	workers := 5
 	var wg sync.WaitGroup
-	for i := 0; i < workers; i++ {
+	for range workers {
 		wg.Add(1)
 		go func() {
-			for i := 0; i < 100; i++ {
+			for range 100 {
 				g.Inc()
 				g.Dec()
 			}
@@ -94,7 +94,7 @@ func TestGaugeSerial(t *testing.T) {
 		n++
 		return n
 	})
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		if nn := g.Get(); nn != n {
 			t.Fatalf("unexpected gauge value; got %v; want %v", nn, n)
 		}
@@ -120,7 +120,7 @@ func TestGaugeConcurrent(t *testing.T) {
 	})
 	err := testConcurrent(func() error {
 		nPrev := g.Get()
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			if n := g.Get(); n <= nPrev {
 				return fmt.Errorf("gauge value must be greater than %v; got %v", nPrev, n)
 			}

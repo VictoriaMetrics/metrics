@@ -184,7 +184,7 @@ func TestGetOrCreatePrometheusHistogramConcurrent(t *testing.T) {
 
 func testGetOrCreatePrometheusHistogram(name string) error {
 	h1 := GetOrCreatePrometheusHistogram(name)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		h2 := GetOrCreatePrometheusHistogram(name)
 		if h1 != h2 {
 			return fmt.Errorf("unexpected histogram returned; got %p; want %p", h2, h1)

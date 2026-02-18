@@ -9,13 +9,13 @@ import (
 
 func TestNewSet(t *testing.T) {
 	var ss []*Set
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		s := NewSet()
 		ss = append(ss, s)
 	}
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		s := ss[i]
-		for j := 0; j < 10; j++ {
+		for j := range 10 {
 			c := s.NewCounter(fmt.Sprintf("counter_%d", j))
 			c.Inc()
 			if n := c.Get(); n != 1 {
@@ -66,9 +66,9 @@ func TestSetListMetricNames(t *testing.T) {
 
 func TestSetUnregisterAllMetrics(t *testing.T) {
 	s := NewSet()
-	for j := 0; j < 3; j++ {
+	for j := range 3 {
 		expectedMetricsCount := 0
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			_ = s.NewCounter(fmt.Sprintf("counter_%d", i))
 			_ = s.NewSummary(fmt.Sprintf("summary_%d", i))
 			_ = s.NewHistogram(fmt.Sprintf("histogram_%d", i))
@@ -145,11 +145,11 @@ func TestRegisterUnregister(t *testing.T) {
 	)
 	wg := sync.WaitGroup{}
 	wg.Add(workers)
-	for n := 0; n < workers; n++ {
+	for range workers {
 		go func() {
 			defer wg.Done()
 			now := time.Now()
-			for i := 0; i < iterations; i++ {
+			for i := range int(iterations) {
 				iteration := i % 5
 				counter := fmt.Sprintf(`counter{iteration="%d"}`, iteration)
 				GetOrCreateCounter(counter).Add(i)

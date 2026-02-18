@@ -92,8 +92,8 @@ func TestGetDefaultSet(t *testing.T) {
 }
 
 func TestUnregisterAllMetrics(t *testing.T) {
-	for j := 0; j < 3; j++ {
-		for i := 0; i < 10; i++ {
+	for j := range 3 {
+		for i := range 10 {
 			_ = NewCounter(fmt.Sprintf("counter_%d", i))
 			_ = NewSummary(fmt.Sprintf("summary_%d", i))
 			_ = NewHistogram(fmt.Sprintf("histogram_%d", i))
@@ -267,12 +267,12 @@ func expectPanic(t *testing.T, context string, f func()) {
 func testConcurrent(f func() error) error {
 	const concurrency = 5
 	resultsCh := make(chan error, concurrency)
-	for i := 0; i < concurrency; i++ {
+	for range concurrency {
 		go func() {
 			resultsCh <- f()
 		}()
 	}
-	for i := 0; i < concurrency; i++ {
+	for range concurrency {
 		select {
 		case err := <-resultsCh:
 			if err != nil {

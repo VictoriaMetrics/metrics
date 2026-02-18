@@ -34,7 +34,7 @@ func TestFloatCounterConcurrent(t *testing.T) {
 	c := NewFloatCounter(name)
 	err := testConcurrent(func() error {
 		nPrev := c.Get()
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			c.Add(1.001)
 			if n := c.Get(); n <= nPrev {
 				return fmt.Errorf("counter value must be greater than %f; got %f", nPrev, n)
@@ -66,7 +66,7 @@ func TestGetOrCreateFloatCounterConcurrent(t *testing.T) {
 
 func testGetOrCreateFloatCounter(name string) error {
 	c1 := GetOrCreateFloatCounter(name)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		c2 := GetOrCreateFloatCounter(name)
 		if c1 != c2 {
 			return fmt.Errorf("unexpected counter returned; got %p; want %p", c2, c1)
