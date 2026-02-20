@@ -1,0 +1,57 @@
+Name:	tcsh
+Umask:	0022
+State:	S (sleeping)
+Tgid:	847024
+Ngid:	0
+Pid:	847024
+PPid:	847023
+TracerPid:	0
+Uid:	6018	6018	6018	6018
+Gid:	1502	1502	1502	1502
+FDSize:	64
+Groups:	14 1501 1502 1504 1510 1520 1530 
+NStgid:	847024
+NSpid:	847024
+NSpgid:	847024
+NSsid:	847024
+VmPeak:	   25148 kB
+VmSize:	   25148 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	    4132 kB
+VmRSS:	    4132 kB
+RssAnon:	    1588 kB
+RssFile:	    2544 kB
+RssShmem:	       0 kB
+VmData:	    2584 kB
+VmStk:	     132 kB
+VmExe:	     304 kB
+VmLib:	    1972 kB
+VmPTE:	      68 kB
+VmSwap:	       0 kB
+HugetlbPages:	       0 kB
+CoreDumping:	0
+THP_enabled:	1
+Threads:	1
+SigQ:	0/254739
+SigPnd:	0000000000000000
+ShdPnd:	0000000000000000
+SigBlk:	0000000000000002
+SigIgn:	0000000000384004
+SigCgt:	0000000009812003
+CapInh:	0000000000000000
+CapPrm:	0000000000000000
+CapEff:	0000000000000000
+CapBnd:	000001ffffffffff
+CapAmb:	0000000000000000
+NoNewPrivs:	0
+Seccomp:	0
+Seccomp_filters:	0
+Speculation_Store_Bypass:	thread vulnerable
+SpeculationIndirectBranch:	conditional enabled
+Cpus_allowed:	ffffff
+Cpus_allowed_list:	0-23
+Mems_allowed:	00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000001
+Mems_allowed_list:	0
+voluntary_ctxt_switches:	821
+nonvoluntary_ctxt_switches:	6

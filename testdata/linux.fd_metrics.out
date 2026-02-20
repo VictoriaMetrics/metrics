@@ -1,0 +1,6 @@
+# HELP process_max_fds
+# TYPE process_max_fds gauge
+process_max_fds 2048
+# HELP process_open_fds
+# TYPE process_open_fds gauge
+process_open_fds 5
