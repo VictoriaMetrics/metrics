@@ -264,7 +264,7 @@ func writeProcessMemMetrics(w io.Writer) {
 
 func writeOsMetrics(w io.Writer) {
 	if osReleaseInfo != "" {
-		fmt.Fprintf(w, "os_metadata{release=%s} 1\n", osReleaseInfo)
+		fmt.Fprintf(w, "os_metadata{kernel=linux, release=%s} 1\n", osReleaseInfo)
 	}
 }
 
