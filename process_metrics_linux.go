@@ -502,7 +502,7 @@ func getCgroupV1CpuControllerPath() string {
 	}
 	lines := strings.Split(string(data), "\n")
 	// each line will be in the format of "hierarchy-ID:controller-list:cgroup-path"
-	// e.g.  5:cpuacct,cpu,cpuset:/daemons
+	// e.g. 5:cpuacct,cpu,cpuset:/daemons
 	// https://man7.org/linux/man-pages/man7/cgroups.7.html
 	for _, line := range lines {
 		parts := strings.SplitN(line, ":", 3)
