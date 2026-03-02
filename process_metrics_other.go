@@ -13,3 +13,5 @@ func writeProcessMetrics(w io.Writer) {
 func writeFDMetrics(w io.Writer) {
 	// TODO: implement it.
 }
+
+func writeOsMetrics(w io.Writer) {}

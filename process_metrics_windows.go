@@ -81,3 +81,6 @@ func writeFDMetrics(w io.Writer) {
 	WriteGaugeUint64(w, "process_max_fds", 16777216)
 	WriteGaugeUint64(w, "process_open_fds", uint64(count))
 }
+
+func writeOsMetrics(w io.Writer) {
+}
