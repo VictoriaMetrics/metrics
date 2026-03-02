@@ -3,6 +3,7 @@
 package metrics
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"syscall"
