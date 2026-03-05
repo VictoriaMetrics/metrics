@@ -10,9 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"time"
-
-	"golang.org/x/sys/unix"
 )
 
 // See https://github.com/prometheus/procfs/blob/a4ac0826abceb44c40fc71daed2b301db498b93e/proc_stat.go#L40 .
@@ -52,10 +51,10 @@ type procStat struct {
 }
 
 func init() {
-	var uname unix.Utsname
-	err := unix.Uname(&uname)
+	var uname syscall.Utsname
+	err := syscall.Uname(&uname)
 	if err != nil {
-		log.Printf("ERROR: metrics: fail to call unix.Uname: %s", err)
+		log.Printf("ERROR: metrics: fail to call syscall.Uname: %s", err)
 		return
 	}
 	release := make([]byte, 0, len(uname.Release))

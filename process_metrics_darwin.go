@@ -5,39 +5,17 @@ package metrics
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"os"
 	"syscall"
 	"time"
 	"unsafe"
-
-	"golang.org/x/sys/unix"
 )
 
 // errNotImplemented is returned by stub functions that replace cgo functions, when cgo
 // isn't available.
 var errNotImplemented = errors.New("not implemented")
-
-var osReleaseInfo string
-
-func init() {
-	var uname unix.Utsname
-	err := unix.Uname(&uname)
-	if err != nil {
-		log.Printf("ERROR: metrics: fail to call unix.Uname: %s", err)
-		return
-	}
-	release := make([]byte, 0, len(uname.Release))
-	for _, v := range uname.Release {
-		if v == 0 {
-			break
-		}
-		release = append(release, byte(v))
-	}
-	osReleaseInfo = string(release)
-}
 
 func writeProcessMetrics(w io.Writer) {
 	if memInfo, err := getMemory(); err == nil {
@@ -82,11 +60,7 @@ func writeFDMetrics(w io.Writer) {
 	}
 }
 
-func writeOsMetrics(w io.Writer) {
-	if osReleaseInfo != "" {
-		fmt.Fprintf(w, "os_metadata{kernel=darwin, release=%s} 1\n", osReleaseInfo)
-	}
-}
+func writeOsMetrics(w io.Writer) {}
 
 func getOpenFileCount() (float64, error) {
 	// Alternately, the undocumented proc_pidinfo(PROC_PIDLISTFDS) can be used to
