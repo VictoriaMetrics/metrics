@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"time"
 )
 
@@ -20,6 +21,8 @@ const userHZ = 100
 //
 // See https://github.com/VictoriaMetrics/VictoriaMetrics/issues/6457
 var pageSizeBytes = uint64(os.Getpagesize())
+
+var osReleaseInfo string
 
 // See http://man7.org/linux/man-pages/man5/proc.5.html
 type procStat struct {
@@ -45,6 +48,23 @@ type procStat struct {
 	Starttime   uint64
 	Vsize       uint
 	Rss         int
+}
+
+func init() {
+	var uname syscall.Utsname
+	err := syscall.Uname(&uname)
+	if err != nil {
+		log.Printf("ERROR: metrics: fail to call syscall.Uname: %s", err)
+		return
+	}
+	release := make([]byte, 0, len(uname.Release))
+	for _, v := range uname.Release {
+		if v == 0 {
+			break
+		}
+		release = append(release, byte(v))
+	}
+	osReleaseInfo = string(release)
 }
 
 func writeProcessMetrics(w io.Writer) {
@@ -240,6 +260,12 @@ func writeProcessMemMetrics(w io.Writer) {
 	WriteGaugeUint64(w, "process_resident_memory_anon_bytes", ms.rssAnon)
 	WriteGaugeUint64(w, "process_resident_memory_file_bytes", ms.rssFile)
 	WriteGaugeUint64(w, "process_resident_memory_shared_bytes", ms.rssShmem)
+}
+
+func writeOsMetrics(w io.Writer) {
+	if osReleaseInfo != "" {
+		fmt.Fprintf(w, "os_metadata{kernel=linux, release=%s} 1\n", osReleaseInfo)
+	}
 }
 
 func getMemStats(path string) (*memStats, error) {

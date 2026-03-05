@@ -60,6 +60,8 @@ func writeFDMetrics(w io.Writer) {
 	}
 }
 
+func writeOsMetrics(w io.Writer) {}
+
 func getOpenFileCount() (float64, error) {
 	// Alternately, the undocumented proc_pidinfo(PROC_PIDLISTFDS) can be used to
 	// return a list of open fds, but that requires a way to call C APIs.  The

@@ -3,6 +3,7 @@
 package metrics
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"syscall"
@@ -20,6 +21,8 @@ var (
 	procGetProcessHandleCount = modkernel32.NewProc("GetProcessHandleCount")
 )
 
+var osReleaseInfo string
+
 // https://learn.microsoft.com/en-us/windows/win32/api/psapi/ns-psapi-process_memory_counters_ex
 type processMemoryCounters struct {
 	_                          uint32
@@ -33,6 +36,14 @@ type processMemoryCounters struct {
 	PagefileUsage              uintptr
 	PeakPagefileUsage          uintptr
 	PrivateUsage               uintptr
+}
+
+func init() {
+	ver := windows.RtlGetVersion()
+	if ver == nil {
+		return
+	}
+	osReleaseInfo = fmt.Sprintf("%d.%d.%d", ver.MajorVersion, ver.MinorVersion, ver.BuildNumber)
 }
 
 func writeProcessMetrics(w io.Writer) {
@@ -80,4 +91,10 @@ func writeFDMetrics(w io.Writer) {
 	// https://learn.microsoft.com/en-us/archive/blogs/markrussinovich/pushing-the-limits-of-windows-handles#maximum-number-of-handles
 	WriteGaugeUint64(w, "process_max_fds", 16777216)
 	WriteGaugeUint64(w, "process_open_fds", uint64(count))
+}
+
+func writeOsMetrics(w io.Writer) {
+	if osReleaseInfo != "" {
+		fmt.Fprintf(w, "os_metadata{kernel=windows, release=%s} 1\n", osReleaseInfo)
+	}
 }
