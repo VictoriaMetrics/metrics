@@ -109,7 +109,6 @@ func (sm *Summary) marshalTo(prefix string, w *bytes.Buffer) {
 	sm.mu.Unlock()
 
 	if count > 0 {
-		var buf [32]byte
 		name, filters := splitMetricName(prefix)
 		w.WriteString(name)
 		w.WriteString("_sum")
@@ -117,16 +116,19 @@ func (sm *Summary) marshalTo(prefix string, w *bytes.Buffer) {
 		w.WriteByte(' ')
 		if float64(int64(sum)) == sum {
 			// Marshal integer sum without scientific notation
-			w.Write(strconv.AppendInt(buf[:0], int64(sum), 10))
+			b := strconv.AppendInt(w.AvailableBuffer(), int64(sum), 10)
+			w.Write(b)
 		} else {
-			w.Write(strconv.AppendFloat(buf[:0], sum, 'g', -1, 64))
+			b := strconv.AppendFloat(w.AvailableBuffer(), sum, 'g', -1, 64)
+			w.Write(b)
 		}
 		w.WriteByte('\n')
 		w.WriteString(name)
 		w.WriteString("_count")
 		w.WriteString(filters)
 		w.WriteByte(' ')
-		w.Write(strconv.AppendUint(buf[:0], count, 10))
+		b := strconv.AppendUint(w.AvailableBuffer(), count, 10)
+		w.Write(b)
 		w.WriteByte('\n')
 	}
 }
@@ -214,10 +216,10 @@ func (qv *quantileValue) marshalTo(prefix string, w *bytes.Buffer) {
 	v := qv.sm.quantileValues[qv.idx]
 	qv.sm.mu.Unlock()
 	if !math.IsNaN(v) {
-		var buf [32]byte
 		w.WriteString(prefix)
 		w.WriteByte(' ')
-		w.Write(strconv.AppendFloat(buf[:0], v, 'g', -1, 64))
+		b := strconv.AppendFloat(w.AvailableBuffer(), v, 'g', -1, 64)
+		w.Write(b)
 		w.WriteByte('\n')
 	}
 }

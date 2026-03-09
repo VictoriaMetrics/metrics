@@ -90,14 +90,15 @@ func (g *Gauge) Add(fAdd float64) {
 
 func (g *Gauge) marshalTo(prefix string, w *bytes.Buffer) {
 	v := g.Get()
-	var buf [32]byte
 	w.WriteString(prefix)
 	w.WriteByte(' ')
 	if float64(int64(v)) == v {
 		// Marshal integer values without scientific notation
-		w.Write(strconv.AppendInt(buf[:0], int64(v), 10))
+		b := strconv.AppendInt(w.AvailableBuffer(), int64(v), 10)
+		w.Write(b)
 	} else {
-		w.Write(strconv.AppendFloat(buf[:0], v, 'g', -1, 64))
+		b := strconv.AppendFloat(w.AvailableBuffer(), v, 'g', -1, 64)
+		w.Write(b)
 	}
 	w.WriteByte('\n')
 }

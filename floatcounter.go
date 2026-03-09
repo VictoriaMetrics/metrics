@@ -60,10 +60,10 @@ func (fc *FloatCounter) Set(n float64) {
 // marshalTo marshals fc with the given prefix to w.
 func (fc *FloatCounter) marshalTo(prefix string, w *bytes.Buffer) {
 	v := fc.Get()
-	var buf [32]byte
 	w.WriteString(prefix)
 	w.WriteByte(' ')
-	w.Write(strconv.AppendFloat(buf[:0], v, 'g', -1, 64))
+	b := strconv.AppendFloat(w.AvailableBuffer(), v, 'g', -1, 64)
+	w.Write(b)
 	w.WriteByte('\n')
 }
 

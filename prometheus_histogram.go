@@ -246,7 +246,6 @@ func (h *PrometheusHistogram) marshalTo(prefix string, w *bytes.Buffer) {
 	h.mu.Lock()
 	count := h.count
 	sum := h.sum
-	var buf [32]byte
 	for i, ub := range h.upperBounds {
 		cumulativeSum += h.buckets[i]
 		tag := fmt.Sprintf(`le="%v"`, ub)
@@ -256,7 +255,8 @@ func (h *PrometheusHistogram) marshalTo(prefix string, w *bytes.Buffer) {
 		w.WriteString("_bucket")
 		w.WriteString(labels)
 		w.WriteByte(' ')
-		w.Write(strconv.AppendUint(buf[:0], cumulativeSum, 10))
+		b := strconv.AppendUint(w.AvailableBuffer(), cumulativeSum, 10)
+		w.Write(b)
 		w.WriteByte('\n')
 	}
 	h.mu.Unlock()
@@ -268,7 +268,8 @@ func (h *PrometheusHistogram) marshalTo(prefix string, w *bytes.Buffer) {
 	w.WriteString("_bucket")
 	w.WriteString(labels)
 	w.WriteByte(' ')
-	w.Write(strconv.AppendUint(buf[:0], count, 10))
+	b := strconv.AppendUint(w.AvailableBuffer(), count, 10)
+	w.Write(b)
 	w.WriteByte('\n')
 
 	name, labels = splitMetricName(prefix)
@@ -277,21 +278,24 @@ func (h *PrometheusHistogram) marshalTo(prefix string, w *bytes.Buffer) {
 		w.WriteString("_sum")
 		w.WriteString(labels)
 		w.WriteByte(' ')
-		w.Write(strconv.AppendInt(buf[:0], int64(sum), 10))
+		b = strconv.AppendInt(w.AvailableBuffer(), int64(sum), 10)
+		w.Write(b)
 		w.WriteByte('\n')
 	} else {
 		w.WriteString(name)
 		w.WriteString("_sum")
 		w.WriteString(labels)
 		w.WriteByte(' ')
-		w.Write(strconv.AppendFloat(buf[:0], sum, 'g', -1, 64))
+		b = strconv.AppendFloat(w.AvailableBuffer(), sum, 'g', -1, 64)
+		w.Write(b)
 		w.WriteByte('\n')
 	}
 	w.WriteString(name)
 	w.WriteString("_count")
 	w.WriteString(labels)
 	w.WriteByte(' ')
-	w.Write(strconv.AppendUint(buf[:0], count, 10))
+	b = strconv.AppendUint(w.AvailableBuffer(), count, 10)
+	w.Write(b)
 	w.WriteByte('\n')
 }
 

@@ -238,7 +238,6 @@ var (
 )
 
 func (h *Histogram) marshalTo(prefix string, w *bytes.Buffer) {
-	var buf [32]byte
 	countTotal := uint64(0)
 	h.VisitNonZeroBuckets(func(vmrange string, count uint64) {
 		tag := fmt.Sprintf("vmrange=%q", vmrange)
@@ -248,7 +247,8 @@ func (h *Histogram) marshalTo(prefix string, w *bytes.Buffer) {
 		w.WriteString("_bucket")
 		w.WriteString(labels)
 		w.WriteByte(' ')
-		w.Write(strconv.AppendUint(buf[:0], count, 10))
+		b := strconv.AppendUint(w.AvailableBuffer(), count, 10)
+		w.Write(b)
 		w.WriteByte('\n')
 		countTotal += count
 	})
@@ -262,16 +262,19 @@ func (h *Histogram) marshalTo(prefix string, w *bytes.Buffer) {
 	w.WriteString(labels)
 	w.WriteByte(' ')
 	if float64(int64(sum)) == sum {
-		w.Write(strconv.AppendInt(buf[:0], int64(sum), 10))
+		b := strconv.AppendInt(w.AvailableBuffer(), int64(sum), 10)
+		w.Write(b)
 	} else {
-		w.Write(strconv.AppendFloat(buf[:0], sum, 'g', -1, 64))
+		b := strconv.AppendFloat(w.AvailableBuffer(), sum, 'g', -1, 64)
+		w.Write(b)
 	}
 	w.WriteByte('\n')
 	w.WriteString(name)
 	w.WriteString("_count")
 	w.WriteString(labels)
 	w.WriteByte(' ')
-	w.Write(strconv.AppendUint(buf[:0], countTotal, 10))
+	b := strconv.AppendUint(w.AvailableBuffer(), countTotal, 10)
+	w.Write(b)
 	w.WriteByte('\n')
 }
 
