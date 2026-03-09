@@ -30,7 +30,7 @@ type namedMetric struct {
 }
 
 type metric interface {
-	marshalTo(prefix string, w io.Writer)
+	marshalTo(prefix string, w *bytes.Buffer)
 	metricType() string
 }
 

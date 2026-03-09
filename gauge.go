@@ -1,9 +1,10 @@
 package metrics
 
 import (
+	"bytes"
 	"fmt"
-	"io"
 	"math"
+	"strconv"
 	"sync/atomic"
 )
 
@@ -87,14 +88,18 @@ func (g *Gauge) Add(fAdd float64) {
 	}
 }
 
-func (g *Gauge) marshalTo(prefix string, w io.Writer) {
+func (g *Gauge) marshalTo(prefix string, w *bytes.Buffer) {
 	v := g.Get()
+	var buf [32]byte
+	w.WriteString(prefix)
+	w.WriteByte(' ')
 	if float64(int64(v)) == v {
 		// Marshal integer values without scientific notation
-		fmt.Fprintf(w, "%s %d\n", prefix, int64(v))
+		w.Write(strconv.AppendInt(buf[:0], int64(v), 10))
 	} else {
-		fmt.Fprintf(w, "%s %g\n", prefix, v)
+		w.Write(strconv.AppendFloat(buf[:0], v, 'g', -1, 64))
 	}
+	w.WriteByte('\n')
 }
 
 func (g *Gauge) metricType() string {
