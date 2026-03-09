@@ -1,9 +1,10 @@
 package metrics
 
 import (
+	"bytes"
 	"fmt"
-	"io"
 	"math"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -240,32 +241,58 @@ func ExponentialBuckets(start, factor float64, count int) []float64 {
 	return upperBounds
 }
 
-func (h *PrometheusHistogram) marshalTo(prefix string, w io.Writer) {
+func (h *PrometheusHistogram) marshalTo(prefix string, w *bytes.Buffer) {
 	cumulativeSum := uint64(0)
 	h.mu.Lock()
 	count := h.count
 	sum := h.sum
+	var buf [32]byte
 	for i, ub := range h.upperBounds {
 		cumulativeSum += h.buckets[i]
 		tag := fmt.Sprintf(`le="%v"`, ub)
 		metricName := addTag(prefix, tag)
 		name, labels := splitMetricName(metricName)
-		fmt.Fprintf(w, "%s_bucket%s %d\n", name, labels, cumulativeSum)
+		w.WriteString(name)
+		w.WriteString("_bucket")
+		w.WriteString(labels)
+		w.WriteByte(' ')
+		w.Write(strconv.AppendUint(buf[:0], cumulativeSum, 10))
+		w.WriteByte('\n')
 	}
 	h.mu.Unlock()
 
 	tag := fmt.Sprintf("le=%q", "+Inf")
 	metricName := addTag(prefix, tag)
 	name, labels := splitMetricName(metricName)
-	fmt.Fprintf(w, "%s_bucket%s %d\n", name, labels, count)
+	w.WriteString(name)
+	w.WriteString("_bucket")
+	w.WriteString(labels)
+	w.WriteByte(' ')
+	w.Write(strconv.AppendUint(buf[:0], count, 10))
+	w.WriteByte('\n')
 
 	name, labels = splitMetricName(prefix)
 	if float64(int64(sum)) == sum {
-		fmt.Fprintf(w, "%s_sum%s %d\n", name, labels, int64(sum))
+		w.WriteString(name)
+		w.WriteString("_sum")
+		w.WriteString(labels)
+		w.WriteByte(' ')
+		w.Write(strconv.AppendInt(buf[:0], int64(sum), 10))
+		w.WriteByte('\n')
 	} else {
-		fmt.Fprintf(w, "%s_sum%s %g\n", name, labels, sum)
+		w.WriteString(name)
+		w.WriteString("_sum")
+		w.WriteString(labels)
+		w.WriteByte(' ')
+		w.Write(strconv.AppendFloat(buf[:0], sum, 'g', -1, 64))
+		w.WriteByte('\n')
 	}
-	fmt.Fprintf(w, "%s_count%s %d\n", name, labels, count)
+	w.WriteString(name)
+	w.WriteString("_count")
+	w.WriteString(labels)
+	w.WriteByte(' ')
+	w.Write(strconv.AppendUint(buf[:0], count, 10))
+	w.WriteByte('\n')
 }
 
 func (h *PrometheusHistogram) metricType() string {
