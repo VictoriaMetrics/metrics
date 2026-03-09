@@ -60,10 +60,10 @@ func (c *Counter) Set(n uint64) {
 // marshalTo marshals c with the given prefix to w.
 func (c *Counter) marshalTo(prefix string, w *bytes.Buffer) {
 	v := c.Get()
-	var buf [32]byte
 	w.WriteString(prefix)
 	w.WriteByte(' ')
-	w.Write(strconv.AppendUint(buf[:0], v, 10))
+	b := strconv.AppendUint(w.AvailableBuffer(), v, 10)
+	w.Write(b)
 	w.WriteByte('\n')
 }
 
