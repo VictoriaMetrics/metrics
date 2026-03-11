@@ -266,5 +266,5 @@ func (h *Histogram) getSum() float64 {
 }
 
 func (h *Histogram) metricType() string {
-	return "histogram"
+	return "untyped"
 }
