@@ -246,6 +246,7 @@ func WriteProcessMetrics(w io.Writer) {
 	writeGoMetrics(w)
 	writeProcessMetrics(w)
 	writePushMetrics(w)
+	writeOsMetrics(w)
 }
 
 // WriteGoMetrics writes Go runtime metrics to w.

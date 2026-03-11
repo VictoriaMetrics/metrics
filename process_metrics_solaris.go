@@ -593,3 +593,5 @@ func writeFDMetrics(w io.Writer) {
 		}
 	}
 }
+
+func writeOsMetrics(w io.Writer) {}
