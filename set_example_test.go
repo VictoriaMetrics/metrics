@@ -62,7 +62,7 @@ func ExampleExposeMetadata() {
 	// Output:
 	// set metrics:
 	// # HELP request_duration_seconds
-	// # TYPE request_duration_seconds histogram
+	// # TYPE request_duration_seconds untyped
 	// request_duration_seconds_bucket{path="/foo/bar",vmrange="8.799e-01...1.000e+00"} 1
 	// request_duration_seconds_bucket{path="/foo/bar",vmrange="1.896e+00...2.154e+00"} 1
 	// request_duration_seconds_sum{path="/foo/bar"} 3
