@@ -1,51 +1,108 @@
 package metrics
 
-import "testing"
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"os"
+	"regexp"
+	"strings"
+	"testing"
+)
 
-func TestGetMaxFilesLimit(t *testing.T) {
-	f := func(want uint64, path string, wantErr bool) {
-		t.Helper()
-		got, err := getMaxFilesLimit(path)
-		if err != nil && !wantErr {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if got != want {
-			t.Fatalf("unexpected result: %d, want: %d at getMaxFilesLimit", got, want)
-		}
+var testdir string
 
-	}
-	f(1024, "testdata/limits", false)
-	f(0, "testdata/bad_path", true)
-	f(0, "testdata/limits_bad", true)
+func init() {
+	testdir, _ = os.Getwd()
+	testdir += "/testdata/"
 }
 
-func TestGetOpenFDsCount(t *testing.T) {
-	f := func(want uint64, path string, wantErr bool) {
-		t.Helper()
-		got, err := getOpenFDsCount(path)
-		if (err != nil && !wantErr) || (err == nil && wantErr) {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if got != want {
-			t.Fatalf("unexpected result: %d, want: %d at getOpenFDsCount", got, want)
-		}
+func getTestData(filename string, t *testing.T) string {
+	data, err := os.ReadFile(testdir + filename)
+	if err != nil {
+		t.Fatalf("%v", err)
 	}
-	f(5, "testdata/fd/", false)
-	f(0, "testdata/fd/0", true)
-	f(0, "testdata/limits", true)
+	s := string(data)
+	if filename == "linux.proc_metrics.out" {
+		// since linux stat.starttime is relative to boot, we need to adjust
+		// the expected results regarding this.
+		m := regexp.MustCompile("process_start_time_seconds [0-9]+")
+		n := fmt.Sprintf("process_start_time_seconds %d", startTimeSeconds)
+		return m.ReplaceAllString(s, n)
+	}
+	return s
 }
 
-func TestGetMemStats(t *testing.T) {
-	f := func(want memStats, path string, wantErr bool) {
-		t.Helper()
-		got, err := getMemStats(path)
-		if (err != nil && !wantErr) || (err == nil && wantErr) {
-			t.Fatalf("unexpected error: %v", err)
+func stripComments(input string) string {
+	var builder strings.Builder
+	lines := strings.Split(input, "\n")
+	for _, line := range lines {
+		s := strings.TrimSpace(line)
+		if strings.HasPrefix(s, "#") || s == "" {
+			continue
 		}
-		if got != nil && *got != want {
-			t.Fatalf("unexpected result: %d, want: %d at getMemStats", *got, want)
+		builder.WriteString(line + "\n")
+	}
+	return builder.String()
+}
+
+func Test_processMetrics(t *testing.T) {
+	diffFormat := "Test %s:\n\tgot:\n'%v'\n\twant:\n'%v'"
+	tests := []struct {
+		name  string
+		wantW string
+		fn    func(w io.Writer)
+	}{
+		{"pm", getTestData("linux.proc_metrics.out", t), writeProcessMetrics},
+		{"fdm", getTestData("linux.fd_metrics.out", t), writeFDMetrics},
+	}
+	for _, compact := range []bool{true, false} {
+		ExposeMetadata(!compact)
+		for _, tt := range tests {
+			want := tt.wantW
+			if compact {
+				want = stripComments(want)
+			}
+			t.Run(tt.name, func(t *testing.T) {
+				w := &bytes.Buffer{}
+				tt.fn(w)
+				if gotW := w.String(); gotW != want {
+					t.Errorf(diffFormat, tt.name, gotW, want)
+				}
+			})
 		}
 	}
-	f(memStats{vmPeak: 2130489344, rssPeak: 200679424, rssAnon: 121602048, rssFile: 11362304}, "testdata/status", false)
-	f(memStats{}, "testdata/status_bad", true)
+
+	// missing /proc/<pid>/io file - just omit the process_io_* metric entries
+	// see https://github.com/VictoriaMetrics/metrics/issues/42
+	tt := tests[0]
+	want := stripComments(tt.wantW)
+	m := regexp.MustCompile("process_io_[_a-z]+ [0-9]+\n")
+	wantW := m.ReplaceAllString(want, "")
+	testfiles[FD_IO] = "/doesNotExist"
+	ExposeMetadata(false) // no need to check comments again
+	init2()
+	t.Run(tt.name, func(t *testing.T) {
+		w := &bytes.Buffer{}
+		tt.fn(w)
+		if gotW := w.String(); gotW != wantW {
+			t.Errorf(diffFormat, tt.name, gotW, wantW)
+		}
+	})
+
+	// bad limits: just omit the process_max_fds metric entry
+	tt = tests[1]
+	want = stripComments(tt.wantW)
+	m = regexp.MustCompile("process_max_fds [0-9]+\n")
+	wantW = m.ReplaceAllString(want, "")
+	testfiles[fdLimits] = "/limits_bad"
+	init2()
+	t.Run(tt.name, func(t *testing.T) {
+		w := &bytes.Buffer{}
+		tt.fn(w)
+		if gotW := w.String(); gotW != wantW {
+			t.Errorf(diffFormat, tt.name, gotW, wantW)
+		}
+	})
+
 }
