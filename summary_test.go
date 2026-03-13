@@ -3,6 +3,7 @@ package metrics
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -166,4 +167,34 @@ func testGetOrCreateSummary(name string) error {
 		}
 	}
 	return nil
+}
+
+func BenchmarkSummary_WritePrometheus(b *testing.B) {
+	s := NewSet()
+	sm := s.NewSummary("benchmark_summary")
+	for i := 0; i < 1000; i++ {
+		sm.Update(float64(i) * 0.001)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		s.WritePrometheus(io.Discard)
+	}
+}
+
+// Benchmark: SummaryExt (with explicit quantiles)
+func BenchmarkSummaryExt_WritePrometheus(b *testing.B) {
+	s := NewSet()
+	quantiles := []float64{0.5, 0.9, 0.95, 0.99, 1.0}
+	sm := s.NewSummaryExt("benchmark_summary_ext", 5*time.Minute, quantiles)
+	for i := 0; i < 1000; i++ {
+		sm.Update(float64(i) * 0.001)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		s.WritePrometheus(io.Discard)
+	}
 }
