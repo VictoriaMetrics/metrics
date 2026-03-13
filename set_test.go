@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"fmt"
+	"io"
 	"sync"
 	"testing"
 	"time"
@@ -170,4 +171,55 @@ func TestRegisterUnregister(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+// Benchmark: MixedSet (realistic scenario with multiple metrics)
+func BenchmarkMixedSet_WritePrometheus(b *testing.B) {
+	s := NewSet()
+
+	// 5 counters
+	for i := 0; i < 5; i++ {
+		c := s.NewCounter("benchmark_mixed_counter_total{instance=\"" + string(rune('a'+i)) + "\"}")
+		c.Set(uint64(i * 1000))
+	}
+
+	// 3 float counters
+	for i := 0; i < 3; i++ {
+		fc := s.NewFloatCounter("benchmark_mixed_float_total{instance=\"" + string(rune('a'+i)) + "\"}")
+		fc.Add(float64(i) * 1.5)
+	}
+
+	// 3 gauges
+	for i := 0; i < 3; i++ {
+		val := float64(i) * 10.5
+		s.NewGauge("benchmark_mixed_gauge{instance=\""+string(rune('a'+i))+"\"}", func() float64 { return val })
+	}
+
+	// 2 histograms (vmrange)
+	for i := 0; i < 2; i++ {
+		h := s.NewHistogram("benchmark_mixed_histogram{instance=\"" + string(rune('a'+i)) + "\"}")
+		for j := 0; j < 100; j++ {
+			h.Update(float64(j) * 0.01)
+		}
+	}
+
+	// 1 prometheus histogram (le-style)
+	ph := s.NewPrometheusHistogram("benchmark_mixed_prom_histogram")
+	for i := 0; i < 100; i++ {
+		ph.Update(float64(i) * 0.01)
+	}
+
+	// 2 summaries
+	for i := 0; i < 2; i++ {
+		sm := s.NewSummary("benchmark_mixed_summary{instance=\"" + string(rune('a'+i)) + "\"}")
+		for j := 0; j < 100; j++ {
+			sm.Update(float64(j) * 0.001)
+		}
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		s.WritePrometheus(io.Discard)
+	}
 }
