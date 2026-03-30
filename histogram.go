@@ -237,19 +237,19 @@ var (
 	bucketRangesOnce sync.Once
 )
 
-func (h *Histogram) marshalTo(prefix string, w *bytes.Buffer) {
+func (h *Histogram) marshalTo(prefix string, bb *bytes.Buffer) {
 	countTotal := uint64(0)
 	h.VisitNonZeroBuckets(func(vmrange string, count uint64) {
 		tag := fmt.Sprintf("vmrange=%q", vmrange)
 		metricName := addTag(prefix, tag)
 		name, labels := splitMetricName(metricName)
-		w.WriteString(name)
-		w.WriteString("_bucket")
-		w.WriteString(labels)
-		w.WriteByte(' ')
-		b := strconv.AppendUint(w.AvailableBuffer(), count, 10)
-		w.Write(b)
-		w.WriteByte('\n')
+		bb.WriteString(name)
+		bb.WriteString("_bucket")
+		bb.WriteString(labels)
+		bb.WriteByte(' ')
+		b := strconv.AppendUint(bb.AvailableBuffer(), count, 10)
+		bb.Write(b)
+		bb.WriteByte('\n')
 		countTotal += count
 	})
 	if countTotal == 0 {
@@ -257,25 +257,25 @@ func (h *Histogram) marshalTo(prefix string, w *bytes.Buffer) {
 	}
 	name, labels := splitMetricName(prefix)
 	sum := h.getSum()
-	w.WriteString(name)
-	w.WriteString("_sum")
-	w.WriteString(labels)
-	w.WriteByte(' ')
+	bb.WriteString(name)
+	bb.WriteString("_sum")
+	bb.WriteString(labels)
+	bb.WriteByte(' ')
 	if float64(int64(sum)) == sum {
-		b := strconv.AppendInt(w.AvailableBuffer(), int64(sum), 10)
-		w.Write(b)
+		b := strconv.AppendInt(bb.AvailableBuffer(), int64(sum), 10)
+		bb.Write(b)
 	} else {
-		b := strconv.AppendFloat(w.AvailableBuffer(), sum, 'g', -1, 64)
-		w.Write(b)
+		b := strconv.AppendFloat(bb.AvailableBuffer(), sum, 'g', -1, 64)
+		bb.Write(b)
 	}
-	w.WriteByte('\n')
-	w.WriteString(name)
-	w.WriteString("_count")
-	w.WriteString(labels)
-	w.WriteByte(' ')
-	b := strconv.AppendUint(w.AvailableBuffer(), countTotal, 10)
-	w.Write(b)
-	w.WriteByte('\n')
+	bb.WriteByte('\n')
+	bb.WriteString(name)
+	bb.WriteString("_count")
+	bb.WriteString(labels)
+	bb.WriteByte(' ')
+	b := strconv.AppendUint(bb.AvailableBuffer(), countTotal, 10)
+	bb.Write(b)
+	bb.WriteByte('\n')
 }
 
 func (h *Histogram) getSum() float64 {

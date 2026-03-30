@@ -3,7 +3,6 @@ package metrics
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"math"
 	"reflect"
 	"strings"
@@ -241,50 +240,4 @@ func testGetOrCreateHistogram(name string) error {
 		}
 	}
 	return nil
-}
-
-// Benchmark: Histogram (VictoriaMetrics native vmrange buckets)
-func BenchmarkHistogram_WritePrometheus(b *testing.B) {
-	s := NewSet()
-	h := s.NewHistogram("benchmark_histogram")
-	for i := 0; i < 1000; i++ {
-		h.Update(float64(i) * 0.001)
-	}
-
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		s.WritePrometheus(io.Discard)
-	}
-}
-
-// Benchmark: PrometheusHistogram (le-style, default buckets ~11)
-func BenchmarkPrometheusHistogram_WritePrometheus(b *testing.B) {
-	s := NewSet()
-	ph := s.NewPrometheusHistogram("benchmark_prometheus_histogram")
-	for i := 0; i < 1000; i++ {
-		ph.Update(float64(i) * 0.01)
-	}
-
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		s.WritePrometheus(io.Discard)
-	}
-}
-
-// Benchmark: PrometheusHistogram (le-style, 20 custom buckets)
-func BenchmarkPrometheusHistogramCustomBuckets_WritePrometheus(b *testing.B) {
-	s := NewSet()
-	buckets := ExponentialBuckets(0.001, 2, 20)
-	ph := s.NewPrometheusHistogramExt("benchmark_prometheus_histogram_custom", buckets)
-	for i := 0; i < 1000; i++ {
-		ph.Update(float64(i) * 0.01)
-	}
-
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		s.WritePrometheus(io.Discard)
-	}
 }

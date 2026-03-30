@@ -99,7 +99,7 @@ func (sm *Summary) UpdateDuration(startTime time.Time) {
 	sm.Update(d)
 }
 
-func (sm *Summary) marshalTo(prefix string, w *bytes.Buffer) {
+func (sm *Summary) marshalTo(prefix string, bb *bytes.Buffer) {
 	// Marshal only *_sum and *_count values.
 	// Quantile values should be already updated by the caller via sm.updateQuantiles() call.
 	// sm.quantileValues will be marshaled later via quantileValue.marshalTo.
@@ -110,26 +110,26 @@ func (sm *Summary) marshalTo(prefix string, w *bytes.Buffer) {
 
 	if count > 0 {
 		name, filters := splitMetricName(prefix)
-		w.WriteString(name)
-		w.WriteString("_sum")
-		w.WriteString(filters)
-		w.WriteByte(' ')
+		bb.WriteString(name)
+		bb.WriteString("_sum")
+		bb.WriteString(filters)
+		bb.WriteByte(' ')
 		if float64(int64(sum)) == sum {
 			// Marshal integer sum without scientific notation
-			b := strconv.AppendInt(w.AvailableBuffer(), int64(sum), 10)
-			w.Write(b)
+			b := strconv.AppendInt(bb.AvailableBuffer(), int64(sum), 10)
+			bb.Write(b)
 		} else {
-			b := strconv.AppendFloat(w.AvailableBuffer(), sum, 'g', -1, 64)
-			w.Write(b)
+			b := strconv.AppendFloat(bb.AvailableBuffer(), sum, 'g', -1, 64)
+			bb.Write(b)
 		}
-		w.WriteByte('\n')
-		w.WriteString(name)
-		w.WriteString("_count")
-		w.WriteString(filters)
-		w.WriteByte(' ')
-		b := strconv.AppendUint(w.AvailableBuffer(), count, 10)
-		w.Write(b)
-		w.WriteByte('\n')
+		bb.WriteByte('\n')
+		bb.WriteString(name)
+		bb.WriteString("_count")
+		bb.WriteString(filters)
+		bb.WriteByte(' ')
+		b := strconv.AppendUint(bb.AvailableBuffer(), count, 10)
+		bb.Write(b)
+		bb.WriteByte('\n')
 	}
 }
 
@@ -211,16 +211,16 @@ type quantileValue struct {
 	idx int
 }
 
-func (qv *quantileValue) marshalTo(prefix string, w *bytes.Buffer) {
+func (qv *quantileValue) marshalTo(prefix string, bb *bytes.Buffer) {
 	qv.sm.mu.Lock()
 	v := qv.sm.quantileValues[qv.idx]
 	qv.sm.mu.Unlock()
 	if !math.IsNaN(v) {
-		w.WriteString(prefix)
-		w.WriteByte(' ')
-		b := strconv.AppendFloat(w.AvailableBuffer(), v, 'g', -1, 64)
-		w.Write(b)
-		w.WriteByte('\n')
+		bb.WriteString(prefix)
+		bb.WriteByte(' ')
+		b := strconv.AppendFloat(bb.AvailableBuffer(), v, 'g', -1, 64)
+		bb.Write(b)
+		bb.WriteByte('\n')
 	}
 }
 

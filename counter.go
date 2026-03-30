@@ -58,13 +58,13 @@ func (c *Counter) Set(n uint64) {
 }
 
 // marshalTo marshals c with the given prefix to w.
-func (c *Counter) marshalTo(prefix string, w *bytes.Buffer) {
+func (c *Counter) marshalTo(prefix string, bb *bytes.Buffer) {
 	v := c.Get()
-	w.WriteString(prefix)
-	w.WriteByte(' ')
-	b := strconv.AppendUint(w.AvailableBuffer(), v, 10)
-	w.Write(b)
-	w.WriteByte('\n')
+	bb.WriteString(prefix)
+	bb.WriteByte(' ')
+	b := strconv.AppendUint(bb.AvailableBuffer(), v, 10)
+	bb.Write(b)
+	bb.WriteByte('\n')
 }
 
 func (c *Counter) metricType() string {

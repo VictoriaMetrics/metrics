@@ -2,7 +2,6 @@ package metrics
 
 import (
 	"fmt"
-	"io"
 	"testing"
 )
 
@@ -74,16 +73,4 @@ func testGetOrCreateCounter(name string) error {
 		}
 	}
 	return nil
-}
-
-func BenchmarkCounter_WritePrometheus(b *testing.B) {
-	s := NewSet()
-	c := s.NewCounter("benchmark_counter_total")
-	c.Set(123456)
-
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		s.WritePrometheus(io.Discard)
-	}
 }

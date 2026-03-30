@@ -88,19 +88,19 @@ func (g *Gauge) Add(fAdd float64) {
 	}
 }
 
-func (g *Gauge) marshalTo(prefix string, w *bytes.Buffer) {
+func (g *Gauge) marshalTo(prefix string, bb *bytes.Buffer) {
 	v := g.Get()
-	w.WriteString(prefix)
-	w.WriteByte(' ')
+	bb.WriteString(prefix)
+	bb.WriteByte(' ')
 	if float64(int64(v)) == v {
 		// Marshal integer values without scientific notation
-		b := strconv.AppendInt(w.AvailableBuffer(), int64(v), 10)
-		w.Write(b)
+		b := strconv.AppendInt(bb.AvailableBuffer(), int64(v), 10)
+		bb.Write(b)
 	} else {
-		b := strconv.AppendFloat(w.AvailableBuffer(), v, 'g', -1, 64)
-		w.Write(b)
+		b := strconv.AppendFloat(bb.AvailableBuffer(), v, 'g', -1, 64)
+		bb.Write(b)
 	}
-	w.WriteByte('\n')
+	bb.WriteByte('\n')
 }
 
 func (g *Gauge) metricType() string {

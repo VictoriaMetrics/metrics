@@ -2,7 +2,6 @@ package metrics
 
 import (
 	"fmt"
-	"io"
 	"sync"
 	"testing"
 )
@@ -130,27 +129,5 @@ func TestGaugeConcurrent(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
-	}
-}
-
-func BenchmarkGauge_WritePrometheus(b *testing.B) {
-	s := NewSet()
-	_ = s.NewGauge("benchmark_gauge", func() float64 { return 42.5 })
-
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		s.WritePrometheus(io.Discard)
-	}
-}
-
-func BenchmarkGaugeInt_WritePrometheus(b *testing.B) {
-	s := NewSet()
-	_ = s.NewGauge("benchmark_gauge_int", func() float64 { return 42 })
-
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		s.WritePrometheus(io.Discard)
 	}
 }
