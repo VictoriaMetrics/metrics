@@ -239,14 +239,23 @@ var (
 
 func (h *Histogram) marshalTo(prefix string, bb *bytes.Buffer) {
 	countTotal := uint64(0)
+	name, labels := splitMetricName(prefix)
+	var rawLabels string
+	if len(labels) > 0 {
+		// strip braces {}
+		rawLabels = labels[1 : len(labels)-1]
+	}
 	h.VisitNonZeroBuckets(func(vmrange string, count uint64) {
-		tag := fmt.Sprintf("vmrange=%q", vmrange)
-		metricName := addTag(prefix, tag)
-		name, labels := splitMetricName(metricName)
 		bb.WriteString(name)
 		bb.WriteString("_bucket")
-		bb.WriteString(labels)
-		bb.WriteByte(' ')
+		bb.WriteByte('{')
+		if len(rawLabels) > 0 {
+			bb.WriteString(rawLabels)
+			bb.WriteByte(',')
+		}
+		bb.WriteString(`vmrange="`)
+		bb.WriteString(vmrange)
+		bb.WriteString(`"} `)
 		b := strconv.AppendUint(bb.AvailableBuffer(), count, 10)
 		bb.Write(b)
 		bb.WriteByte('\n')
@@ -255,7 +264,6 @@ func (h *Histogram) marshalTo(prefix string, bb *bytes.Buffer) {
 	if countTotal == 0 {
 		return
 	}
-	name, labels := splitMetricName(prefix)
 	sum := h.getSum()
 	bb.WriteString(name)
 	bb.WriteString("_sum")

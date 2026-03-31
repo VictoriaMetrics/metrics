@@ -246,33 +246,44 @@ func (h *PrometheusHistogram) marshalTo(prefix string, bb *bytes.Buffer) {
 	h.mu.Lock()
 	count := h.count
 	sum := h.sum
+
+	name, labels := splitMetricName(prefix)
+	var rawLabels string
+	if len(labels) > 0 {
+		// strip braces {}
+		rawLabels = labels[1 : len(labels)-1]
+	}
 	for i, ub := range h.upperBounds {
 		cumulativeSum += h.buckets[i]
-		tag := fmt.Sprintf(`le="%v"`, ub)
-		metricName := addTag(prefix, tag)
-		name, labels := splitMetricName(metricName)
 		bb.WriteString(name)
 		bb.WriteString("_bucket")
-		bb.WriteString(labels)
-		bb.WriteByte(' ')
-		b := strconv.AppendUint(bb.AvailableBuffer(), cumulativeSum, 10)
+		bb.WriteByte('{')
+		if len(rawLabels) > 0 {
+			bb.WriteString(rawLabels)
+			bb.WriteByte(',')
+		}
+		bb.WriteString(`le="`)
+		b := strconv.AppendFloat(bb.AvailableBuffer(), ub, 'g', -1, 64)
+		bb.Write(b)
+		bb.WriteString(`"} `)
+		b = strconv.AppendUint(bb.AvailableBuffer(), cumulativeSum, 10)
 		bb.Write(b)
 		bb.WriteByte('\n')
 	}
 	h.mu.Unlock()
 
-	tag := fmt.Sprintf("le=%q", "+Inf")
-	metricName := addTag(prefix, tag)
-	name, labels := splitMetricName(metricName)
 	bb.WriteString(name)
 	bb.WriteString("_bucket")
-	bb.WriteString(labels)
-	bb.WriteByte(' ')
+	bb.WriteByte('{')
+	if len(rawLabels) > 0 {
+		bb.WriteString(rawLabels)
+		bb.WriteByte(',')
+	}
+	bb.WriteString(`le="+Inf"} `)
 	b := strconv.AppendUint(bb.AvailableBuffer(), count, 10)
 	bb.Write(b)
 	bb.WriteByte('\n')
 
-	name, labels = splitMetricName(prefix)
 	if float64(int64(sum)) == sum {
 		bb.WriteString(name)
 		bb.WriteString("_sum")
