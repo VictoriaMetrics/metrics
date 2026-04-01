@@ -1,9 +1,10 @@
 package metrics
 
 import (
+	"bytes"
 	"fmt"
-	"io"
 	"math"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -240,32 +241,73 @@ func ExponentialBuckets(start, factor float64, count int) []float64 {
 	return upperBounds
 }
 
-func (h *PrometheusHistogram) marshalTo(prefix string, w io.Writer) {
+func (h *PrometheusHistogram) marshalTo(prefix string, bb *bytes.Buffer) {
 	cumulativeSum := uint64(0)
 	h.mu.Lock()
 	count := h.count
 	sum := h.sum
+
+	name, labels := splitMetricName(prefix)
+	var rawLabels string
+	if len(labels) > 0 {
+		// strip braces {}
+		rawLabels = labels[1 : len(labels)-1]
+	}
 	for i, ub := range h.upperBounds {
 		cumulativeSum += h.buckets[i]
-		tag := fmt.Sprintf(`le="%v"`, ub)
-		metricName := addTag(prefix, tag)
-		name, labels := splitMetricName(metricName)
-		fmt.Fprintf(w, "%s_bucket%s %d\n", name, labels, cumulativeSum)
+		bb.WriteString(name)
+		bb.WriteString("_bucket")
+		bb.WriteByte('{')
+		if len(rawLabels) > 0 {
+			bb.WriteString(rawLabels)
+			bb.WriteByte(',')
+		}
+		bb.WriteString(`le="`)
+		b := strconv.AppendFloat(bb.AvailableBuffer(), ub, 'g', -1, 64)
+		bb.Write(b)
+		bb.WriteString(`"} `)
+		b = strconv.AppendUint(bb.AvailableBuffer(), cumulativeSum, 10)
+		bb.Write(b)
+		bb.WriteByte('\n')
 	}
 	h.mu.Unlock()
 
-	tag := fmt.Sprintf("le=%q", "+Inf")
-	metricName := addTag(prefix, tag)
-	name, labels := splitMetricName(metricName)
-	fmt.Fprintf(w, "%s_bucket%s %d\n", name, labels, count)
-
-	name, labels = splitMetricName(prefix)
-	if float64(int64(sum)) == sum {
-		fmt.Fprintf(w, "%s_sum%s %d\n", name, labels, int64(sum))
-	} else {
-		fmt.Fprintf(w, "%s_sum%s %g\n", name, labels, sum)
+	bb.WriteString(name)
+	bb.WriteString("_bucket")
+	bb.WriteByte('{')
+	if len(rawLabels) > 0 {
+		bb.WriteString(rawLabels)
+		bb.WriteByte(',')
 	}
-	fmt.Fprintf(w, "%s_count%s %d\n", name, labels, count)
+	bb.WriteString(`le="+Inf"} `)
+	b := strconv.AppendUint(bb.AvailableBuffer(), count, 10)
+	bb.Write(b)
+	bb.WriteByte('\n')
+
+	if float64(int64(sum)) == sum {
+		bb.WriteString(name)
+		bb.WriteString("_sum")
+		bb.WriteString(labels)
+		bb.WriteByte(' ')
+		b = strconv.AppendInt(bb.AvailableBuffer(), int64(sum), 10)
+		bb.Write(b)
+		bb.WriteByte('\n')
+	} else {
+		bb.WriteString(name)
+		bb.WriteString("_sum")
+		bb.WriteString(labels)
+		bb.WriteByte(' ')
+		b = strconv.AppendFloat(bb.AvailableBuffer(), sum, 'g', -1, 64)
+		bb.Write(b)
+		bb.WriteByte('\n')
+	}
+	bb.WriteString(name)
+	bb.WriteString("_count")
+	bb.WriteString(labels)
+	bb.WriteByte(' ')
+	b = strconv.AppendUint(bb.AvailableBuffer(), count, 10)
+	bb.Write(b)
+	bb.WriteByte('\n')
 }
 
 func (h *PrometheusHistogram) metricType() string {

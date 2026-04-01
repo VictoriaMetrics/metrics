@@ -1,9 +1,10 @@
 package metrics
 
 import (
+	"bytes"
 	"fmt"
-	"io"
 	"math"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -98,7 +99,7 @@ func (sm *Summary) UpdateDuration(startTime time.Time) {
 	sm.Update(d)
 }
 
-func (sm *Summary) marshalTo(prefix string, w io.Writer) {
+func (sm *Summary) marshalTo(prefix string, bb *bytes.Buffer) {
 	// Marshal only *_sum and *_count values.
 	// Quantile values should be already updated by the caller via sm.updateQuantiles() call.
 	// sm.quantileValues will be marshaled later via quantileValue.marshalTo.
@@ -109,13 +110,26 @@ func (sm *Summary) marshalTo(prefix string, w io.Writer) {
 
 	if count > 0 {
 		name, filters := splitMetricName(prefix)
+		bb.WriteString(name)
+		bb.WriteString("_sum")
+		bb.WriteString(filters)
+		bb.WriteByte(' ')
 		if float64(int64(sum)) == sum {
 			// Marshal integer sum without scientific notation
-			fmt.Fprintf(w, "%s_sum%s %d\n", name, filters, int64(sum))
+			b := strconv.AppendInt(bb.AvailableBuffer(), int64(sum), 10)
+			bb.Write(b)
 		} else {
-			fmt.Fprintf(w, "%s_sum%s %g\n", name, filters, sum)
+			b := strconv.AppendFloat(bb.AvailableBuffer(), sum, 'g', -1, 64)
+			bb.Write(b)
 		}
-		fmt.Fprintf(w, "%s_count%s %d\n", name, filters, count)
+		bb.WriteByte('\n')
+		bb.WriteString(name)
+		bb.WriteString("_count")
+		bb.WriteString(filters)
+		bb.WriteByte(' ')
+		b := strconv.AppendUint(bb.AvailableBuffer(), count, 10)
+		bb.Write(b)
+		bb.WriteByte('\n')
 	}
 }
 
@@ -197,12 +211,16 @@ type quantileValue struct {
 	idx int
 }
 
-func (qv *quantileValue) marshalTo(prefix string, w io.Writer) {
+func (qv *quantileValue) marshalTo(prefix string, bb *bytes.Buffer) {
 	qv.sm.mu.Lock()
 	v := qv.sm.quantileValues[qv.idx]
 	qv.sm.mu.Unlock()
 	if !math.IsNaN(v) {
-		fmt.Fprintf(w, "%s %g\n", prefix, v)
+		bb.WriteString(prefix)
+		bb.WriteByte(' ')
+		b := strconv.AppendFloat(bb.AvailableBuffer(), v, 'g', -1, 64)
+		bb.Write(b)
+		bb.WriteByte('\n')
 	}
 }
 
