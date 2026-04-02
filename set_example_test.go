@@ -3,6 +3,7 @@ package metrics_test
 import (
 	"bytes"
 	"fmt"
+	"time"
 
 	"github.com/VictoriaMetrics/metrics"
 )
@@ -54,6 +55,11 @@ func ExampleExposeMetadata() {
 	// This summary will have quantiles printed before _sum/_count metrics
 	s.NewSummary(`vm_request_duration_seconds{path="/api/v1/query_range"}`).Update(1)
 
+	var testSummaryQuantilesNoop = []float64{0.5, 0.9, 0.97, 0.99, 1}
+	testWindow := 50 * time.Millisecond
+	s.NewSummaryExt(`test_summary_expire_quick`, testWindow, testSummaryQuantilesNoop).Update(1)
+	time.Sleep(4 * testWindow)
+
 	// Dump metrics from s.
 	var bb bytes.Buffer
 	s.WritePrometheus(&bb)
@@ -88,6 +94,10 @@ func ExampleExposeMetadata() {
 	// # HELP set_counter
 	// # TYPE set_counter counter
 	// set_counter 1
+	// # HELP test_summary_expire_quick
+	// # TYPE test_summary_expire_quick summary
+	// test_summary_expire_quick_sum 1
+	// test_summary_expire_quick_count 1
 	// # HELP unused_bytes
 	// # TYPE unused_bytes gauge
 	// unused_bytes{foo="bar"} 58
