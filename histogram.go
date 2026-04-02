@@ -1,10 +1,9 @@
 package metrics
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"math"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -237,53 +236,26 @@ var (
 	bucketRangesOnce sync.Once
 )
 
-func (h *Histogram) marshalTo(prefix string, bb *bytes.Buffer) {
+func (h *Histogram) marshalTo(prefix string, w io.Writer) {
 	countTotal := uint64(0)
-	name, labels := splitMetricName(prefix)
-	var rawLabels string
-	if len(labels) > 0 {
-		// strip braces {}
-		rawLabels = labels[1 : len(labels)-1]
-	}
 	h.VisitNonZeroBuckets(func(vmrange string, count uint64) {
-		bb.WriteString(name)
-		bb.WriteString("_bucket")
-		bb.WriteByte('{')
-		if len(rawLabels) > 0 {
-			bb.WriteString(rawLabels)
-			bb.WriteByte(',')
-		}
-		bb.WriteString(`vmrange="`)
-		bb.WriteString(vmrange)
-		bb.WriteString(`"} `)
-		b := strconv.AppendUint(bb.AvailableBuffer(), count, 10)
-		bb.Write(b)
-		bb.WriteByte('\n')
+		tag := fmt.Sprintf("vmrange=%q", vmrange)
+		metricName := addTag(prefix, tag)
+		name, labels := splitMetricName(metricName)
+		fmt.Fprintf(w, "%s_bucket%s %d\n", name, labels, count)
 		countTotal += count
 	})
 	if countTotal == 0 {
 		return
 	}
+	name, labels := splitMetricName(prefix)
 	sum := h.getSum()
-	bb.WriteString(name)
-	bb.WriteString("_sum")
-	bb.WriteString(labels)
-	bb.WriteByte(' ')
 	if float64(int64(sum)) == sum {
-		b := strconv.AppendInt(bb.AvailableBuffer(), int64(sum), 10)
-		bb.Write(b)
+		fmt.Fprintf(w, "%s_sum%s %d\n", name, labels, int64(sum))
 	} else {
-		b := strconv.AppendFloat(bb.AvailableBuffer(), sum, 'g', -1, 64)
-		bb.Write(b)
+		fmt.Fprintf(w, "%s_sum%s %g\n", name, labels, sum)
 	}
-	bb.WriteByte('\n')
-	bb.WriteString(name)
-	bb.WriteString("_count")
-	bb.WriteString(labels)
-	bb.WriteByte(' ')
-	b := strconv.AppendUint(bb.AvailableBuffer(), countTotal, 10)
-	bb.Write(b)
-	bb.WriteByte('\n')
+	fmt.Fprintf(w, "%s_count%s %d\n", name, labels, countTotal)
 }
 
 func (h *Histogram) getSum() float64 {

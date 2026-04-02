@@ -1,8 +1,8 @@
 package metrics
 
 import (
-	"bytes"
-	"strconv"
+	"fmt"
+	"io"
 	"sync"
 )
 
@@ -58,13 +58,9 @@ func (fc *FloatCounter) Set(n float64) {
 }
 
 // marshalTo marshals fc with the given prefix to w.
-func (fc *FloatCounter) marshalTo(prefix string, bb *bytes.Buffer) {
+func (fc *FloatCounter) marshalTo(prefix string, w io.Writer) {
 	v := fc.Get()
-	bb.WriteString(prefix)
-	bb.WriteByte(' ')
-	b := strconv.AppendFloat(bb.AvailableBuffer(), v, 'g', -1, 64)
-	bb.Write(b)
-	bb.WriteByte('\n')
+	fmt.Fprintf(w, "%s %g\n", prefix, v)
 }
 
 func (fc *FloatCounter) metricType() string {
