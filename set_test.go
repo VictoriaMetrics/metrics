@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
 	"testing"
@@ -170,4 +171,28 @@ func TestRegisterUnregister(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+func TestMetadataForAfterSummaryWindow(t *testing.T) {
+	ExposeMetadata(true)
+	defer ExposeMetadata(false)
+
+	s := NewSet()
+	var testSummaryQuantilesNoop = []float64{0.5, 0.9, 0.97, 0.99, 1}
+	testWindow := 50 * time.Millisecond
+	s.NewSummaryExt(`test_summary_expire_quick`, testWindow, testSummaryQuantilesNoop).Update(1)
+	time.Sleep(4 * testWindow)
+
+	var bb bytes.Buffer
+	s.WritePrometheus(&bb)
+
+	expect := `# HELP test_summary_expire_quick
+# TYPE test_summary_expire_quick summary
+test_summary_expire_quick_sum 1
+test_summary_expire_quick_count 1
+`
+
+	if bb.String() != expect {
+		t.Fatalf("unexpected summary metric names:\n%s", bb.String())
+	}
 }
