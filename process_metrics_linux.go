@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -412,10 +413,7 @@ func getCgroupV2Path() string {
 	// can block in the kernel when a backing filesystem (e.g. a hung NFS or FUSE
 	// mount) is unresponsive. Since this runs at program init via psiMetricsStart,
 	// a blocking read would hang startup, so fall back to disabling PSI metrics instead.
-	mountinfoData, ok := readFileWithTimeout("/proc/self/mountinfo", time.Second)
-	if !ok {
-		return ""
-	}
+	mountinfoData, _ := readFileWithTimeout("/proc/self/mountinfo", time.Second)
 	return getCgroupV2PathInternal(string(cgroupData), mountinfoData)
 }
 
@@ -463,13 +461,13 @@ func getCgroupV2PathInternal(cgroupData, mountinfoData string) string {
 	// See https://github.com/VictoriaMetrics/metrics/issues/127
 	mountpoint := getCgroupV2Mountpoint(mountinfoData)
 	if mountpoint == "" {
-		return ""
+		// fallback to original mountpoint
+		return strings.TrimSuffix(rel, "/")
 	}
-	path := mountpoint + rel
+	cgroupPath := path.Join(mountpoint, rel)
 
 	// Drop trailing slash if it exists. This prevents from '//' in the constructed paths by the caller.
-	// Drop trailing slash if it exsits. This prevents from '//' in the constructed paths by the caller.
-	return strings.TrimSuffix(path, "/")
+	return strings.TrimSuffix(cgroupPath, "/")
 }
 
 // getCgroupV2RelativePath returns the cgroup v2 path of the process relative to
@@ -493,6 +491,10 @@ func getCgroupV2RelativePath(cgroupData string) string {
 // parsed from the contents of /proc/self/mountinfo, or an empty string if cgroup v2 isn't mounted.
 func getCgroupV2Mountpoint(mountinfoData string) string {
 	for _, line := range strings.Split(mountinfoData, "\n") {
+		if !strings.Contains(line, "cgroup2") {
+			// fast path
+			continue
+		}
 		// mountinfo lines have the form:
 		//   36 35 98:0 / /sys/fs/cgroup/unified rw,... - cgroup2 cgroup2 rw,...
 		// The optional fields preceding the filesystem type are terminated by " - ".
