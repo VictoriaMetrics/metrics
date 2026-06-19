@@ -88,8 +88,8 @@ func TestGetCgroupV2PathInternal(t *testing.T) {
 		"1:name=systemd:/user.slice\n",
 		"30 23 0:26 / /sys/fs/cgroup/systemd rw - cgroup cgroup rw,name=systemd\n")
 
-	// cgroup v2 present in /proc/self/cgroup but not mounted -> empty path.
-	f("",
+	// cgroup v2 present in /proc/self/cgroup but not mounted -> fallback to self/cgroup path.
+	f("/user.slice",
 		"0::/user.slice\n",
 		"30 23 0:26 / /sys/fs/cgroup rw - cgroup cgroup rw,cpu\n")
 }
