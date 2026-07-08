@@ -153,7 +153,7 @@ func TestRegisterUnregisterSet(t *testing.T) {
 	WritePrometheus(&bb, false)
 	data = bb.String()
 	if strings.Contains(data, expectedLine) {
-		t.Fatalf("unepected %q in\n%s", expectedLine, data)
+		t.Fatalf("unexpected %q in\n%s", expectedLine, data)
 	}
 }
 
