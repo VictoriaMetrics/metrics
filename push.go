@@ -385,7 +385,7 @@ func (pc *pushContext) pushMetrics(ctx context.Context, writeMetrics func(w io.W
 	}
 
 	req.Header.Set("Content-Type", "text/plain")
-	// Set the needed headers, and `Content-Type` allowed be overwrited.
+	// Set the needed headers, and `Content-Type` allowed be overwritten.
 	for name, values := range pc.headers {
 		for _, value := range values {
 			req.Header.Add(name, value)
@@ -435,7 +435,7 @@ func addExtraLabels(dst, src []byte, extraLabels string) []byte {
 		}
 		line = bytes.TrimSpace(line)
 		if len(line) == 0 {
-			// Skip empy lines
+			// Skip empty lines
 			continue
 		}
 		if bytes.HasPrefix(line, bashBytes) {
