@@ -18,6 +18,10 @@ const (
 
 var bucketMultiplier = math.Pow(10, 1.0/bucketsPerDecimal)
 
+// maxRegularBucketValue is the upper bound of the last regular bucket (1e18).
+// Values greater than it belong to the +Inf overflow bucket.
+var maxRegularBucketValue = math.Pow10(e10Max)
+
 // Histogram is a histogram for non-negative values with automatically created buckets.
 //
 // See https://medium.com/@valyala/improving-histogram-usability-for-prometheus-and-grafana-bc7e5df0e350
@@ -95,7 +99,11 @@ func (h *Histogram) Update(v float64) {
 	h.sum += v
 	if bucketIdx < 0 {
 		h.lower++
-	} else if bucketIdx >= bucketsCount {
+	} else if bucketIdx > bucketsCount || v > maxRegularBucketValue {
+		// The value check guards against float rounding: for values slightly
+		// above 1e18, math.Log10 still returns exactly 18, so bucketIdx == 486
+		// and the bucketIdx check alone would let them fall into the last
+		// regular bucket instead of the +Inf overflow bucket.
 		h.upper++
 	} else {
 		idx := uint(bucketIdx)
