@@ -25,13 +25,13 @@ var pageSizeBytes = uint64(os.Getpagesize())
 var cgroupCpuStatPath = ""
 
 func init() {
-	cgroupV2Path := getCgroupV2Path()
+	cgroupV2Path := getCgroupPath(cgroupVersionV2)
 	if cgroupV2Path != "" {
 		cgroupCpuStatPath = cgroupV2Path + "/cpu.stat"
 		return
 	}
 
-	cgroupV1CpuControllerPath := getCgroupV1CpuControllerPath()
+	cgroupV1CpuControllerPath := getCgroupPath(cgroupVersionV1CPU)
 	if cgroupV1CpuControllerPath == "" {
 		return
 	}
@@ -422,12 +422,12 @@ func readPSITotals(cgroupPath, statsName string) (uint64, uint64, error) {
 }
 
 type cpuThrottleMetrics struct {
-	nrPeriods     uint64
-	nrThrottled   uint64
-	throttledTime uint64 // us
+	throttledSecs float64
 }
 
 func getCgroupCpuStats() (*cpuThrottleMetrics, error) {
+	log.Printf("jayice: cgroupCpuStatPath:%s", cgroupCpuStatPath)
+
 	if cgroupCpuStatPath == "" {
 		return nil, nil
 	}
@@ -435,8 +435,12 @@ func getCgroupCpuStats() (*cpuThrottleMetrics, error) {
 	if err != nil {
 		return nil, err
 	}
+	return parseCgroupCpuStat(string(data))
+}
+
+func parseCgroupCpuStat(data string) (*cpuThrottleMetrics, error) {
 	var ctms cpuThrottleMetrics
-	lines := strings.Split(string(data), "\n")
+	lines := strings.Split(data, "\n")
 	for _, s := range lines {
 		field := strings.Fields(s)
 		if len(field) != 2 {
@@ -448,19 +452,15 @@ func getCgroupCpuStats() (*cpuThrottleMetrics, error) {
 		if err != nil {
 			return nil, fmt.Errorf("cannot parse number from %q: %w", s, err)
 		}
-		// For cgroup v1, refer to ttps://docs.kernel.org/scheduler/sched-bwc.html#statistics
+		// For cgroup v1, refer to https://docs.kernel.org/scheduler/sched-bwc.html#statistics
 		// For cgroup v2, refer to https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#cpu-interface-files
 		switch fieldKey {
-		case "nr_periods":
-			ctms.nrPeriods = value
-		case "nr_throttled":
-			ctms.nrThrottled = value
 		case "throttled_usec":
 			// In cgroup v2, the field is in microseconds.
-			ctms.throttledTime = value / 1000
+			ctms.throttledSecs = float64(value) / 1e6
 		case "throttled_time":
 			// In cgroup v1, the field is in nanoseconds.
-			ctms.throttledTime = value / 1000 / 1000
+			ctms.throttledSecs = float64(value) / 1e9
 		}
 	}
 	return &ctms, nil
@@ -476,12 +476,17 @@ func writeProcessCpuThrottleMetrics(w io.Writer) {
 		// cgroup or cpu controller is not enabled, so do not expose cpu throttle metrics.
 		return
 	}
-	WriteGaugeUint64(w, "process_cgroup_cpu_periods_total", ctms.nrPeriods)
-	WriteGaugeUint64(w, "process_cgroup_cpu_throttled_periods_total", ctms.nrThrottled)
-	WriteGaugeUint64(w, "process_cgroup_cpu_throttled_seconds_total", ctms.throttledTime)
+	WriteCounterFloat64(w, "process_cgroup_cpu_throttled_seconds_total", ctms.throttledSecs)
 }
 
-func getCgroupV2Path() string {
+type cgroupVersion int
+
+const (
+	cgroupVersionV2 cgroupVersion = iota
+	cgroupVersionV1CPU
+)
+
+func getCgroupPath(version cgroupVersion) string {
 	cgroupData, err := os.ReadFile("/proc/self/cgroup")
 	if err != nil {
 		return ""
@@ -491,7 +496,7 @@ func getCgroupV2Path() string {
 	// mount) is unresponsive. Since this runs at program init via psiMetricsStart,
 	// a blocking read would hang startup, so fall back to disabling PSI metrics instead.
 	mountinfoData, _ := readFileWithTimeout("/proc/self/mountinfo", time.Second)
-	return getCgroupV2PathInternal(string(cgroupData), mountinfoData)
+	return getCgroupPathInternal(version, string(cgroupData), mountinfoData)
 }
 
 // readFileWithTimeout reads the file at path, returning ("", false) if the read
@@ -525,21 +530,42 @@ func readFileWithTimeout(path string, timeout time.Duration) (string, bool) {
 	}
 }
 
-func getCgroupV2PathInternal(cgroupData, mountinfoData string) string {
-	rel := getCgroupV2RelativePath(cgroupData)
-	if rel == "" {
-		// The process doesn't run under cgroup v2.
-		return ""
-	}
+func getCgroupV2Path() string {
+	return getCgroupPath(cgroupVersionV2)
+}
 
-	// Determine the actual cgroup v2 mountpoint instead of assuming /sys/fs/cgroup.
-	// On systems with a hybrid cgroup hierarchy the unified cgroup v2 is mounted
-	// at a different location such as /sys/fs/cgroup/unified.
-	// See https://github.com/VictoriaMetrics/metrics/issues/127
-	mountpoint := getCgroupV2Mountpoint(mountinfoData)
-	if mountpoint == "" {
-		// fallback to assumed path
-		mountpoint = "/sys/fs/cgroup"
+func getCgroupV1CpuControllerPath() string {
+	return getCgroupPath(cgroupVersionV1CPU)
+}
+
+func getCgroupPathInternal(version cgroupVersion, cgroupData, mountinfoData string) string {
+	var rel, mountpoint string
+	switch version {
+	case cgroupVersionV2:
+		rel = getCgroupV2RelativePath(cgroupData)
+		if rel == "" {
+			// The process doesn't run under cgroup v2.
+			return ""
+		}
+		// Determine the actual cgroup v2 mountpoint instead of assuming /sys/fs/cgroup.
+		// On systems with a hybrid cgroup hierarchy the unified cgroup v2 is mounted
+		// at a different location such as /sys/fs/cgroup/unified.
+		// See https://github.com/VictoriaMetrics/metrics/issues/127
+		mountpoint = getCgroupV2Mountpoint(mountinfoData)
+		if mountpoint == "" {
+			mountpoint = "/sys/fs/cgroup"
+		}
+	case cgroupVersionV1CPU:
+		rel = getCgroupV1RelativePath(cgroupData)
+		if rel == "" {
+			return ""
+		}
+		mountpoint = getCgroupV1CpuMountpoint(mountinfoData)
+		if mountpoint == "" {
+			mountpoint = "/sys/fs/cgroup/cpu"
+		}
+	default:
+		return ""
 	}
 	cgroupPath := path.Join(mountpoint, rel)
 	// Drop trailing slash if it exists. This prevents from '//' in the constructed paths by the caller.
@@ -593,12 +619,12 @@ func getCgroupV2Mountpoint(mountinfoData string) string {
 	return ""
 }
 
-func getCgroupV1CpuControllerPath() string {
-	data, err := os.ReadFile("/proc/self/cgroup")
-	if err != nil {
-		return ""
-	}
-	lines := strings.Split(string(data), "\n")
+func getCgroupV1CpuControllerPathInternal(cgroupData, mountinfoData string) string {
+	return getCgroupPathInternal(cgroupVersionV1CPU, cgroupData, mountinfoData)
+}
+
+func getCgroupV1RelativePath(cgroupData string) string {
+	lines := strings.Split(cgroupData, "\n")
 	// each line will be in the format of "hierarchy-ID:controller-list:cgroup-path"
 	// e.g. 5:cpuacct,cpu,cpuset:/daemons
 	// https://man7.org/linux/man-pages/man7/cgroups.7.html
@@ -610,7 +636,38 @@ func getCgroupV1CpuControllerPath() string {
 		controllers := strings.Split(parts[1], ",")
 		for _, ctrl := range controllers {
 			if strings.TrimSpace(ctrl) == "cpu" {
-				return "/sys/fs/cgroup/cpu" + parts[2]
+				return strings.TrimSpace(parts[2])
+			}
+		}
+	}
+	return ""
+}
+
+func getCgroupV1CpuMountpoint(mountinfoData string) string {
+	for _, line := range strings.Split(mountinfoData, "\n") {
+		if !strings.Contains(line, "cgroup") && !strings.Contains(line, " - cgroup\t") {
+			continue
+		}
+		// mountinfo lines have the form:
+		//   32 30 0:28 / /sys/fs/cgroup/cpu,cpuacct rw,nosuid,nodev,noexec,relatime - cgroup cgroup rw,cpu,cpuacct
+		// The optional fields preceding the filesystem type are terminated by " - ".
+		// See https://man7.org/linux/man-pages/man5/proc_pid_mountinfo.5.html
+		tmp := strings.SplitN(line, " - ", 2)
+		if len(tmp) != 2 {
+			continue
+		}
+		after := strings.Fields(tmp[1])
+		if len(after) < 3 || after[0] != "cgroup" {
+			continue
+		}
+		controllers := strings.Split(after[2], ",")
+		for _, ctrl := range controllers {
+			if strings.TrimSpace(ctrl) == "cpu" {
+				before := strings.Fields(tmp[0])
+				if len(before) < 5 {
+					return ""
+				}
+				return before[4]
 			}
 		}
 	}
