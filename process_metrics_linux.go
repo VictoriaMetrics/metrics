@@ -532,10 +532,6 @@ func getCgroupV2Path() string {
 	return getCgroupPath(cgroupVersionV2)
 }
 
-func getCgroupV1CpuControllerPath() string {
-	return getCgroupPath(cgroupVersionV1CPU)
-}
-
 func getCgroupPathInternal(version cgroupVersion, cgroupData, mountinfoData string) string {
 	var rel, mountpoint string
 	switch version {
