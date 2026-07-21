@@ -25,13 +25,13 @@ var pageSizeBytes = uint64(os.Getpagesize())
 var cgroupCpuStatPath = ""
 
 func init() {
-	cgroupV2Path := getCgroupPath(cgroupVersionV2)
+	cgroupV2Path := getCgroupV2Path()
 	if cgroupV2Path != "" {
 		cgroupCpuStatPath = cgroupV2Path + "/cpu.stat"
 		return
 	}
 
-	cgroupV1CpuControllerPath := getCgroupPath(cgroupVersionV1CPU)
+	cgroupV1CpuControllerPath := getCgroupV1CpuControllerPath()
 	if cgroupV1CpuControllerPath == "" {
 		return
 	}
@@ -477,14 +477,7 @@ func writeProcessCpuThrottleMetrics(w io.Writer) {
 	WriteCounterFloat64(w, "process_cgroup_cpu_throttled_seconds_total", ctms.throttledSecs)
 }
 
-type cgroupVersion int
-
-const (
-	cgroupVersionV2 cgroupVersion = iota
-	cgroupVersionV1CPU
-)
-
-func getCgroupPath(version cgroupVersion) string {
+func getCgroupV2Path() string {
 	cgroupData, err := os.ReadFile("/proc/self/cgroup")
 	if err != nil {
 		return ""
@@ -494,7 +487,7 @@ func getCgroupPath(version cgroupVersion) string {
 	// mount) is unresponsive. Since this runs at program init via psiMetricsStart,
 	// a blocking read would hang startup, so fall back to disabling PSI metrics instead.
 	mountinfoData, _ := readFileWithTimeout("/proc/self/mountinfo", time.Second)
-	return getCgroupPathInternal(version, string(cgroupData), mountinfoData)
+	return getCgroupV2PathInternal(string(cgroupData), mountinfoData)
 }
 
 // readFileWithTimeout reads the file at path, returning ("", false) if the read
@@ -528,39 +521,22 @@ func readFileWithTimeout(path string, timeout time.Duration) (string, bool) {
 	}
 }
 
-func getCgroupV2Path() string {
-	return getCgroupPath(cgroupVersionV2)
-}
-
-func getCgroupPathInternal(version cgroupVersion, cgroupData, mountinfoData string) string {
-	var rel, mountpoint string
-	switch version {
-	case cgroupVersionV2:
-		rel = getCgroupV2RelativePath(cgroupData)
-		if rel == "" {
-			// The process doesn't run under cgroup v2.
-			return ""
-		}
-		// Determine the actual cgroup v2 mountpoint instead of assuming /sys/fs/cgroup.
-		// On systems with a hybrid cgroup hierarchy the unified cgroup v2 is mounted
-		// at a different location such as /sys/fs/cgroup/unified.
-		// See https://github.com/VictoriaMetrics/metrics/issues/127
-		mountpoint = getCgroupV2Mountpoint(mountinfoData)
-		if mountpoint == "" {
-			mountpoint = "/sys/fs/cgroup"
-		}
-	case cgroupVersionV1CPU:
-		rel = getCgroupV1RelativePath(cgroupData)
-		if rel == "" {
-			return ""
-		}
-		mountpoint = getCgroupV1CpuMountpoint(mountinfoData)
-		if mountpoint == "" {
-			mountpoint = "/sys/fs/cgroup/cpu"
-		}
-	default:
+func getCgroupV2PathInternal(cgroupData, mountinfoData string) string {
+	rel := getCgroupV2RelativePath(cgroupData)
+	if rel == "" {
+		// The process doesn't run under cgroup v2.
 		return ""
 	}
+
+	// Determine the actual cgroup v2 mountpoint instead of assuming /sys/fs/cgroup.
+	// On systems with a hybrid cgroup hierarchy the unified cgroup v2 is mounted
+	// at a different location such as /sys/fs/cgroup/unified.
+	// See https://github.com/VictoriaMetrics/metrics/issues/127
+	mountpoint := getCgroupV2Mountpoint(mountinfoData)
+	if mountpoint == "" {
+		mountpoint = "/sys/fs/cgroup"
+	}
+
 	cgroupPath := path.Join(mountpoint, rel)
 	// Drop trailing slash if it exists. This prevents from '//' in the constructed paths by the caller.
 	return strings.TrimSuffix(cgroupPath, "/")
@@ -614,7 +590,25 @@ func getCgroupV2Mountpoint(mountinfoData string) string {
 }
 
 func getCgroupV1CpuControllerPathInternal(cgroupData, mountinfoData string) string {
-	return getCgroupPathInternal(cgroupVersionV1CPU, cgroupData, mountinfoData)
+	rel := getCgroupV1RelativePath(cgroupData)
+	if rel == "" {
+		return ""
+	}
+	mountpoint := getCgroupV1CpuMountpoint(mountinfoData)
+	if mountpoint == "" {
+		mountpoint = "/sys/fs/cgroup/cpu"
+	}
+	cgroupPath := path.Join(mountpoint, rel)
+	return strings.TrimSuffix(cgroupPath, "/")
+}
+
+func getCgroupV1CpuControllerPath() string {
+	cgroupData, err := os.ReadFile("/proc/self/cgroup")
+	if err != nil {
+		return ""
+	}
+	mountinfoData, _ := readFileWithTimeout("/proc/self/mountinfo", time.Second)
+	return getCgroupV1CpuControllerPathInternal(string(cgroupData), mountinfoData)
 }
 
 func getCgroupV1RelativePath(cgroupData string) string {

@@ -55,7 +55,7 @@ func TestGetMemStats(t *testing.T) {
 func TestGetCgroupV2PathInternal(t *testing.T) {
 	f := func(want, cgroupData, mountinfoData string) {
 		t.Helper()
-		got := getCgroupPathInternal(cgroupVersionV2, cgroupData, mountinfoData)
+		got := getCgroupV2PathInternal(cgroupData, mountinfoData)
 		if got != want {
 			t.Fatalf("unexpected result: %q, want: %q", got, want)
 		}
