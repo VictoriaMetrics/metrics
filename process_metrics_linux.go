@@ -426,8 +426,6 @@ type cpuThrottleMetrics struct {
 }
 
 func getCgroupCpuStats() (*cpuThrottleMetrics, error) {
-	log.Printf("jayice: cgroupCpuStatPath:%s", cgroupCpuStatPath)
-
 	if cgroupCpuStatPath == "" {
 		return nil, nil
 	}
