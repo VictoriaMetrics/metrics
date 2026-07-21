@@ -34,7 +34,7 @@ func TestCounterConcurrent(t *testing.T) {
 	c := NewCounter(name)
 	err := testConcurrent(func() error {
 		nPrev := c.Get()
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			c.Inc()
 			if n := c.Get(); n <= nPrev {
 				return fmt.Errorf("counter value must be greater than %d; got %d", nPrev, n)
@@ -66,7 +66,7 @@ func TestGetOrCreateCounterConcurrent(t *testing.T) {
 
 func testGetOrCreateCounter(name string) error {
 	c1 := GetOrCreateCounter(name)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		c2 := GetOrCreateCounter(name)
 		if c1 != c2 {
 			return fmt.Errorf("unexpected counter returned; got %p; want %p", c2, c1)

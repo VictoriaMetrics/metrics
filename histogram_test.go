@@ -108,7 +108,7 @@ prefix_count 120
 
 	// Verify supported ranges
 	for e10 := -100; e10 < 100; e10++ {
-		for offset := 0; offset < bucketsPerDecimal; offset++ {
+		for offset := range bucketsPerDecimal {
 			m := 1 + math.Pow(bucketMultiplier, float64(offset))
 			f1 := m * math.Pow10(e10)
 			h.Update(f1)
@@ -233,7 +233,7 @@ func TestGetOrCreateHistogramConcurrent(t *testing.T) {
 
 func testGetOrCreateHistogram(name string) error {
 	h1 := GetOrCreateHistogram(name)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		h2 := GetOrCreateHistogram(name)
 		if h1 != h2 {
 			return fmt.Errorf("unexpected histogram returned; got %p; want %p", h2, h1)

@@ -380,7 +380,7 @@ func init() {
 	if onTest {
 		cwd, err := os.Getwd()
 		if err != nil {
-			panic("Unknwon directory: " + err.Error())
+			panic("Unknown directory: " + err.Error())
 		}
 		testdata_dir = cwd + "/testdata"
 		fmt.Printf("Using test data in %s ...\n", testdata_dir)
@@ -388,10 +388,10 @@ func init() {
 
 	// we preset all so that it is safe to use these vals even if the rest of
 	// init fails
-	for i := 0; i < int(PM_COUNT); i++ {
+	for i := range int(PM_COUNT) {
 		pm_val[i] = 0
 	}
-	for i := 0; i < int(FD_COUNT); i++ {
+	for i := range int(FD_COUNT) {
 		pm_fd[i] = -1
 	}
 	pid := os.Getpid()
@@ -448,7 +448,7 @@ func init() {
 	if err == nil {
 		pm_val[PM_MAX_FDS] = float64(lim.Cur)
 	} else {
-		log.Printf("ERROR: metrics: Unable determin max. fd limit.")
+		log.Printf("ERROR: metrics: Unable to determine max. fd limit.")
 		pm_val[PM_MAX_FDS] = -1
 	}
 }

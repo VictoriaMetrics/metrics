@@ -120,13 +120,7 @@ func (sm *Summary) marshalTo(prefix string, w io.Writer) {
 }
 
 func (sm *Summary) metricType() string {
-	// this metric type should not be printed, because summary (sum and count)
-	// of the same metric family will be printed after quantile(s).
-	// If metadata is needed, the metadata from quantile(s) should be used.
-	// quantile will be printed first, so its metrics type won't be printed as metadata.
-	// Printing quantiles before sum and count aligns this code with Prometheus behavior.
-	// See: https://github.com/VictoriaMetrics/metrics/pull/99
-	return "unsupported"
+	return "summary"
 }
 
 func splitMetricName(name string) (string, string) {
@@ -180,7 +174,7 @@ func GetOrCreateSummaryExt(name string, window time.Duration, quantiles []float6
 }
 
 func isEqualQuantiles(a, b []float64) bool {
-	// Do not use relfect.DeepEqual, since it is slower than the direct comparison.
+	// Do not use reflect.DeepEqual, since it is slower than the direct comparison.
 	if len(a) != len(b) {
 		return false
 	}
