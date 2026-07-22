@@ -636,6 +636,7 @@ func getCgroupV1CpuMountpoint(mountinfoData string) string {
 		if !strings.Contains(line, "cgroup") && !strings.Contains(line, " - cgroup\t") {
 			continue
 		}
+
 		// mountinfo lines have the form:
 		//   32 30 0:28 / /sys/fs/cgroup/cpu,cpuacct rw,nosuid,nodev,noexec,relatime - cgroup cgroup rw,cpu,cpuacct
 		// The optional fields preceding the filesystem type are terminated by " - ".
