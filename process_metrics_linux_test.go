@@ -1,6 +1,8 @@
 package metrics
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestGetMaxFilesLimit(t *testing.T) {
 	f := func(want uint64, path string, wantErr bool) {
@@ -92,4 +94,63 @@ func TestGetCgroupV2PathInternal(t *testing.T) {
 	f("/sys/fs/cgroup/user.slice",
 		"0::/user.slice\n",
 		"30 23 0:26 / /sys/fs/cgroup rw - cgroup cgroup rw,cpu\n")
+}
+
+func TestGetCgroupV1CpuControllerPathInternal(t *testing.T) {
+	f := func(want, cgroupData, mountinfoData string) {
+		t.Helper()
+		got := getCgroupV1CpuControllerPathInternal(cgroupData, mountinfoData)
+		if got != want {
+			t.Fatalf("unexpected result: %q, want: %q", got, want)
+		}
+	}
+
+	f("/sys/fs/cgroup/cpu/daemons",
+		"5:cpuacct,cpu,cpuset:/daemons\n",
+		"32 30 0:28 / /sys/fs/cgroup/cpu rw,nosuid,nodev,noexec,relatime - cgroup cgroup rw,cpu\n")
+
+	f("/sys/fs/cgroup/cpu,cpuacct/daemons",
+		"5:cpuacct,cpu,cpuset:/daemons\n",
+		"32 30 0:28 / /sys/fs/cgroup/cpu,cpuacct rw,nosuid,nodev,noexec,relatime - cgroup cgroup rw,cpu,cpuacct\n")
+
+	f("/sys/fs/cgroup/cpu",
+		"5:cpuacct,cpu,cpuset:/\n",
+		"32 30 0:28 / /sys/fs/cgroup/cpu rw,nosuid,nodev,noexec,relatime - cgroup cgroup rw,cpu\n")
+
+	f("",
+		"5:memory:/daemons\n",
+		"32 30 0:28 / /sys/fs/cgroup/cpu rw,nosuid,nodev,noexec,relatime - cgroup cgroup rw,cpu\n")
+
+	f("/sys/fs/cgroup/cpu/daemons",
+		"5:cpuacct,cpu,cpuset:/daemons\n",
+		"")
+}
+
+func TestParseCgroupCpuStat(t *testing.T) {
+	t.Run("cgroup-v2", func(t *testing.T) {
+		ctms, err := parseCgroupCpuStat("usage_usec 123\nuser_usec 45\nsystem_usec 67\nnr_periods 7\nnr_throttled 3\nthrottled_usec 1000000\n")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got, want := *ctms, (cpuThrottleMetrics{throttledSecs: 1}); got != want {
+			t.Fatalf("unexpected result: %#v, want: %#v", got, want)
+		}
+	})
+
+	t.Run("cgroup-v1", func(t *testing.T) {
+		ctms, err := parseCgroupCpuStat("nr_periods 9\nnr_throttled 4\nthrottled_time 2000000000\n")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got, want := *ctms, (cpuThrottleMetrics{throttledSecs: 2}); got != want {
+			t.Fatalf("unexpected result: %#v, want: %#v", got, want)
+		}
+	})
+
+	t.Run("bad-value", func(t *testing.T) {
+		_, err := parseCgroupCpuStat("throttled_usec nope\n")
+		if err == nil {
+			t.Fatal("expected error")
+		}
+	})
 }
