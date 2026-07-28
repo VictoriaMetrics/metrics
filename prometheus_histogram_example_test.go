@@ -20,7 +20,7 @@ func ExamplePrometheusHistogram() {
 func ExamplePrometheusHistogram_vec() {
 	for i := range 3 {
 		// Dynamically construct metric name and pass it to GetOrCreatePrometheusHistogram.
-		name := fmt.Sprintf(`response_size_bytes{path=%q, code=%q}`, "/foo/bar", 200+i)
+		name := fmt.Sprintf(`response_size_bytes{path=%q, code="%d"}`, "/foo/bar", 200+i)
 		response := processRequest()
 		metrics.GetOrCreatePrometheusHistogram(name).Update(float64(len(response)))
 	}
