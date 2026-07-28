@@ -22,20 +22,19 @@ const userHZ = 100
 // See https://github.com/VictoriaMetrics/VictoriaMetrics/issues/6457
 var pageSizeBytes = uint64(os.Getpagesize())
 
-var cgroupCpuStatPath = ""
+var cgroupV2CpuStatPath string
+var cgroupV1CpuStatPath string
 
 func init() {
 	cgroupV2Path := getCgroupV2Path()
 	if cgroupV2Path != "" {
-		cgroupCpuStatPath = cgroupV2Path + "/cpu.stat"
-		return
+		cgroupV2CpuStatPath = cgroupV2Path + "/cpu.stat"
 	}
 
 	cgroupV1CpuControllerPath := getCgroupV1CpuControllerPath()
-	if cgroupV1CpuControllerPath == "" {
-		return
+	if cgroupV1CpuControllerPath != "" {
+		cgroupV1CpuStatPath = cgroupV1CpuControllerPath + "/cpu.stat"
 	}
-	cgroupCpuStatPath = cgroupV1CpuControllerPath + "/cpu.stat"
 }
 
 // See http://man7.org/linux/man-pages/man5/proc.5.html
@@ -426,14 +425,35 @@ type cpuThrottleMetrics struct {
 }
 
 func getCgroupCpuStats() (*cpuThrottleMetrics, error) {
-	if cgroupCpuStatPath == "" {
+	if cgroupV2CpuStatPath == "" && cgroupV1CpuStatPath == "" {
 		return nil, nil
 	}
-	data, err := ioutil.ReadFile(cgroupCpuStatPath)
-	if err != nil {
-		return nil, err
+	var lastErr error
+	// In hybrid cgroup environments,
+	// the cpu.stat may exist in cgroup v2 but doesn't expose throttling fields, while the CPU
+	// controller in cgroup v1 could expose them instead.
+	for _, p := range []string{cgroupV2CpuStatPath, cgroupV1CpuStatPath} {
+		if p == "" {
+			continue
+		}
+		data, err := ioutil.ReadFile(p)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		ctms, err := parseCgroupCpuStat(string(data))
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		if ctms.throttledSecs != nil {
+			return ctms, nil
+		}
 	}
-	return parseCgroupCpuStat(string(data))
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return nil, nil
 }
 
 func parseCgroupCpuStat(data string) (*cpuThrottleMetrics, error) {

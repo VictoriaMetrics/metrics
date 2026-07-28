@@ -1,6 +1,8 @@
 package metrics
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -169,4 +171,42 @@ func TestParseCgroupCpuStat(t *testing.T) {
 			t.Fatal("expected error")
 		}
 	})
+}
+
+func TestGetCgroupCpuStatsFallback(t *testing.T) {
+	f := func(v2Data string) {
+		t.Helper()
+		dir := t.TempDir()
+		v2Path := filepath.Join(dir, "v2.cpu.stat")
+		v1Path := filepath.Join(dir, "v1.cpu.stat")
+		if err := os.WriteFile(v2Path, []byte(v2Data), 0644); err != nil {
+			t.Fatalf("cannot write v2 cpu.stat: %v", err)
+		}
+		if err := os.WriteFile(v1Path, []byte("nr_periods 9\nnr_throttled 4\nthrottled_time 2000000000\n"), 0644); err != nil {
+			t.Fatalf("cannot write v1 cpu.stat: %v", err)
+		}
+
+		origV2Path := cgroupV2CpuStatPath
+		origV1Path := cgroupV1CpuStatPath
+		cgroupV2CpuStatPath = v2Path
+		cgroupV1CpuStatPath = v1Path
+		defer func() {
+			cgroupV2CpuStatPath = origV2Path
+			cgroupV1CpuStatPath = origV1Path
+		}()
+
+		ctms, err := getCgroupCpuStats()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if ctms == nil || ctms.throttledSecs == nil {
+			t.Fatalf("unexpected nil throttledSecs")
+		}
+		if got, want := *ctms.throttledSecs, float64(2); got != want {
+			t.Fatalf("unexpected throttledSecs: %g, want: %g", got, want)
+		}
+	}
+
+	f("usage_usec 123\nuser_usec 45\nsystem_usec 67\n")
+	f("throttled_usec nope\n")
 }
