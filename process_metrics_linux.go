@@ -422,7 +422,7 @@ func readPSITotals(cgroupPath, statsName string) (uint64, uint64, error) {
 }
 
 type cpuThrottleMetrics struct {
-	throttledSecs float64
+	throttledSecs *float64
 }
 
 func getCgroupCpuStats() (*cpuThrottleMetrics, error) {
@@ -455,10 +455,12 @@ func parseCgroupCpuStat(data string) (*cpuThrottleMetrics, error) {
 		switch fieldKey {
 		case "throttled_usec":
 			// In cgroup v2, the field is in microseconds.
-			ctms.throttledSecs = float64(value) / 1e6
+			v := float64(value) / 1e6
+			ctms.throttledSecs = &v
 		case "throttled_time":
 			// In cgroup v1, the field is in nanoseconds.
-			ctms.throttledSecs = float64(value) / 1e9
+			v := float64(value) / 1e9
+			ctms.throttledSecs = &v
 		}
 	}
 	return &ctms, nil
@@ -474,7 +476,9 @@ func writeProcessCpuThrottleMetrics(w io.Writer) {
 		// cgroup or cpu controller is not enabled, so do not expose cpu throttle metrics.
 		return
 	}
-	WriteCounterFloat64(w, "process_cgroup_cpu_throttled_seconds_total", ctms.throttledSecs)
+	if ctms.throttledSecs != nil {
+		WriteCounterFloat64(w, "process_cgroup_cpu_throttled_seconds_total", *ctms.throttledSecs)
+	}
 }
 
 func getCgroupV2Path() string {
@@ -633,7 +637,7 @@ func getCgroupV1RelativePath(cgroupData string) string {
 
 func getCgroupV1CpuMountpoint(mountinfoData string) string {
 	for _, line := range strings.Split(mountinfoData, "\n") {
-		if !strings.Contains(line, "cgroup") && !strings.Contains(line, " - cgroup\t") {
+		if !strings.Contains(line, "cgroup") {
 			continue
 		}
 

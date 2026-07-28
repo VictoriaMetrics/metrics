@@ -132,8 +132,11 @@ func TestParseCgroupCpuStat(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if got, want := *ctms, (cpuThrottleMetrics{throttledSecs: 1}); got != want {
-			t.Fatalf("unexpected result: %#v, want: %#v", got, want)
+		if ctms.throttledSecs == nil {
+			t.Fatalf("unexpected nil throttledSecs")
+		}
+		if got, want := *ctms.throttledSecs, float64(1); got != want {
+			t.Fatalf("unexpected throttledSecs: %g, want: %g", got, want)
 		}
 	})
 
@@ -142,8 +145,21 @@ func TestParseCgroupCpuStat(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if got, want := *ctms, (cpuThrottleMetrics{throttledSecs: 2}); got != want {
-			t.Fatalf("unexpected result: %#v, want: %#v", got, want)
+		if ctms.throttledSecs == nil {
+			t.Fatalf("unexpected nil throttledSecs")
+		}
+		if got, want := *ctms.throttledSecs, float64(2); got != want {
+			t.Fatalf("unexpected throttledSecs: %g, want: %g", got, want)
+		}
+	})
+
+	t.Run("without-throttling-field", func(t *testing.T) {
+		ctms, err := parseCgroupCpuStat("usage_usec 123\nuser_usec 45\nsystem_usec 67\n")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if ctms.throttledSecs != nil {
+			t.Fatalf("unexpected throttledSecs: %g", *ctms.throttledSecs)
 		}
 	})
 
