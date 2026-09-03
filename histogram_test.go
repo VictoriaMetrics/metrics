@@ -139,6 +139,32 @@ prefix_count 120
 	}
 }
 
+func TestHistogramMaxPowerOfTenBoundary(t *testing.T) {
+	// The maximum exact power of ten (1e18) must land in the top regular
+	// bucket, whose inclusive upper bound is 1e18 - consistent with how the
+	// other 10^n values are placed. Only values strictly greater than 1e18
+	// belong in the +Inf overflow bucket.
+	f := func(v float64, want string) {
+		t.Helper()
+		h := &Histogram{}
+		h.Update(v)
+		got := ""
+		h.VisitNonZeroBuckets(func(vmrange string, _ uint64) {
+			got = vmrange
+		})
+		if got != want {
+			t.Errorf("Update(%g) landed in %q; want %q", v, got, want)
+		}
+	}
+	f(1e18, "8.799e+17...1.000e+18")
+	f(9.999e17, "8.799e+17...1.000e+18")
+	f(1.0001e18, "1.000e+18...+Inf")
+	f(math.Inf(1), "1.000e+18...+Inf")
+	// Values just above 1e18 still have math.Log10 == 18 (so bucketIdx == 486),
+	// but must land in the +Inf overflow bucket, not the last regular bucket.
+	f(math.Nextafter(1e18, math.Inf(1)), "1.000e+18...+Inf")
+}
+
 func TestHistogramConcurrent(t *testing.T) {
 	name := "HistogramConcurrent"
 	h := NewHistogram(name)
