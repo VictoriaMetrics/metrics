@@ -39,6 +39,11 @@ type PushOptions struct {
 
 	// Optional WaitGroup for waiting until all the push workers created with this WaitGroup are stopped.
 	WaitGroup *sync.WaitGroup
+
+	// CustomClient allows specifying a custom HTTP client for making the push requests.
+	//
+	// If nil, the default http.Client will be created.
+	CustomClient *http.Client
 }
 
 // InitPushWithOptions sets up periodic push for globally registered metrics to the given pushURL with the given interval.
@@ -325,7 +330,12 @@ func newPushContext(pushURL string, opts *PushOptions) (*pushContext, error) {
 	}
 
 	pushURLRedacted := pu.Redacted()
-	client := &http.Client{}
+
+	client := opts.CustomClient
+	if client == nil {
+		client = &http.Client{}
+	}
+
 	return &pushContext{
 		pushURL:            pu,
 		method:             method,
