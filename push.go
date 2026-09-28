@@ -228,11 +228,11 @@ func InitPushExtWithOptions(ctx context.Context, pushURL string, interval time.D
 		}
 	}
 
-	logErr := opts.LogErr
-	if logErr == nil {
-		logErr = func(format string, v ...any) {
-			log.Printf("ERROR: "+format, v)
-		}
+	logErr := func(format string, v ...any) {
+		log.Printf("ERROR: "+format, v)
+	}
+	if opts != nil && opts.LogErr != nil {
+		logErr = opts.LogErr
 	}
 
 	go func() {
