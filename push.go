@@ -37,6 +37,9 @@ type PushOptions struct {
 	// By default the Method is GET.
 	Method string
 
+	// LogErr is an optional function for logging errors during metrics push.
+	//
+	// By default errors are logged via log.Printf.
 	LogErr func(format string, v ...any)
 
 	// Optional WaitGroup for waiting until all the push workers created with this WaitGroup are stopped.
