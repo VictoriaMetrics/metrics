@@ -37,6 +37,8 @@ type PushOptions struct {
 	// By default the Method is GET.
 	Method string
 
+	LogErr func(format string, v ...any)
+
 	// Optional WaitGroup for waiting until all the push workers created with this WaitGroup are stopped.
 	WaitGroup *sync.WaitGroup
 }
@@ -225,6 +227,14 @@ func InitPushExtWithOptions(ctx context.Context, pushURL string, interval time.D
 			wg.Add(1)
 		}
 	}
+
+	logErr := opts.LogErr
+	if logErr == nil {
+		logErr = func(format string, v ...any) {
+			log.Printf("ERROR: "+format, v)
+		}
+	}
+
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
@@ -236,7 +246,7 @@ func InitPushExtWithOptions(ctx context.Context, pushURL string, interval time.D
 				err := pc.pushMetrics(ctxLocal, writeMetrics)
 				cancel()
 				if err != nil {
-					log.Printf("ERROR: metrics.push: %s", err)
+					logErr("metrics: push: %s", err)
 				}
 			case <-stopCh:
 				if wg != nil {
