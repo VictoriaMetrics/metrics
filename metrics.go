@@ -125,6 +125,10 @@ func WritePrometheus(w io.Writer, exposeProcessMetrics bool) {
 //
 //   - process_cpu_seconds_total - CPU time spent by the process
 //
+//   - process_available_cpu_cores - the smallest visible cgroup CPU quota in cores,
+//     including fractional cores, or runtime.NumCPU() if no quota can be read.
+//     This is independent of GOMAXPROCS. Ancestor quotas may be shared with other processes.
+//
 //   - process_major_pagefaults_total - page faults resulted in disk IO
 //
 //   - process_minor_pagefaults_total - page faults resolved without disk IO
@@ -248,7 +252,7 @@ func WritePrometheus(w io.Writer, exposeProcessMetrics bool) {
 // See also WriteFDMetrics.
 func WriteProcessMetrics(w io.Writer) {
 	writeGoMetrics(w)
-	writeProcessMetrics(w)
+	WriteProcMetrics(w)
 	writePushMetrics(w)
 }
 
@@ -261,6 +265,7 @@ func WriteGoMetrics(w io.Writer) {
 // WriteProcMetrics writes OS-level process metrics to w by reading
 // the /proc filesystem (CPU, memory, file descriptors, PSI, etc.).
 func WriteProcMetrics(w io.Writer) {
+	WriteGaugeFloat64(w, "process_available_cpu_cores", availableCPUCores())
 	writeProcessMetrics(w)
 }
 
