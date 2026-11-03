@@ -10,7 +10,9 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 )
 
@@ -21,21 +23,6 @@ const userHZ = 100
 //
 // See https://github.com/VictoriaMetrics/VictoriaMetrics/issues/6457
 var pageSizeBytes = uint64(os.Getpagesize())
-
-var cgroupV2CpuStatPath string
-var cgroupV1CpuStatPath string
-
-func init() {
-	cgroupV2Path := getCgroupV2Path()
-	if cgroupV2Path != "" {
-		cgroupV2CpuStatPath = cgroupV2Path + "/cpu.stat"
-	}
-
-	cgroupV1CpuControllerPath := getCgroupV1CpuControllerPath()
-	if cgroupV1CpuControllerPath != "" {
-		cgroupV1CpuStatPath = cgroupV1CpuControllerPath + "/cpu.stat"
-	}
-}
 
 // See http://man7.org/linux/man-pages/man5/proc.5.html
 type procStat struct {
@@ -420,84 +407,118 @@ func readPSITotals(cgroupPath, statsName string) (uint64, uint64, error) {
 	return some, full, nil
 }
 
-type cpuThrottleMetrics struct {
+type cgroupCpuStat struct {
 	throttledSecs *float64
 }
 
-func getCgroupCpuStats() (*cpuThrottleMetrics, error) {
-	if cgroupV2CpuStatPath == "" && cgroupV1CpuStatPath == "" {
-		return nil, nil
+var cgroupCpuStatPath string
+var cgroupCpuStatPathInit sync.Once
+
+// initCgroupCpuStatPath picks cgroup v2 cpu.stat in unified mode only, and cgroup v1 otherwise.
+// In hybrid mode the cpu controller is bound to cgroup v1, so v2 cpu.stat lacks throttling fields.
+// See "Hierarchy and Controller Support" at https://systemd.io/CGROUP_DELEGATION/
+// and https://github.com/opencontainers/cgroups/blob/v0.0.6/manager/new.go#L37-L54
+func initCgroupCpuStatPath() {
+
+	// isCgroup2Mount returns true if a cgroup v2 filesystem is mounted at the given mountpoint.
+	isCgroup2Mount := func(mountpoint string) bool {
+		var st syscall.Statfs_t
+		if err := syscall.Statfs(mountpoint, &st); err != nil {
+			return false
+		}
+
+		// cgroup2SuperMagic is the cgroup v2 filesystem type returned by statfs.
+		// See CGROUP2_SUPER_MAGIC in https://man7.org/linux/man-pages/man2/statfs.2.html
+		const cgroup2SuperMagic = 0x63677270
+
+		// The type of st.Type differs between architectures, so convert it to int64.
+		return int64(st.Type) == cgroup2SuperMagic
 	}
-	var lastErr error
-	// In hybrid cgroup environments,
-	// the cpu.stat may exist in cgroup v2 but doesn't expose throttling fields, while the CPU
-	// controller in cgroup v1 could expose them instead.
-	for _, p := range []string{cgroupV2CpuStatPath, cgroupV1CpuStatPath} {
-		if p == "" {
-			continue
-		}
-		data, err := ioutil.ReadFile(p)
-		if err != nil {
-			lastErr = err
-			continue
-		}
-		ctms, err := parseCgroupCpuStat(string(data))
-		if err != nil {
-			lastErr = err
-			continue
-		}
-		if ctms.throttledSecs != nil {
-			return ctms, nil
-		}
+
+	var p string
+	switch {
+	case isCgroup2Mount("/sys/fs/cgroup/unified"):
+		// hybrid
+		p = getCgroupV1CpuControllerPath()
+	case isCgroup2Mount("/sys/fs/cgroup"):
+		// unified
+		p = getCgroupV2Path()
+	default:
+		// legacy
+		p = getCgroupV1CpuControllerPath()
 	}
-	if lastErr != nil {
-		return nil, lastErr
+	if p != "" {
+		cgroupCpuStatPath = p + "/cpu.stat"
 	}
-	return nil, nil
 }
 
-func parseCgroupCpuStat(data string) (*cpuThrottleMetrics, error) {
-	var ctms cpuThrottleMetrics
+func getCgroupCpuStats() (*cgroupCpuStat, error) {
+	cgroupCpuStatPathInit.Do(initCgroupCpuStatPath)
+	if cgroupCpuStatPath == "" {
+		return nil, nil
+	}
+	data, err := os.ReadFile(cgroupCpuStatPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// The cpu controller isn't enabled for the cgroup.
+			return nil, nil
+		}
+		return nil, fmt.Errorf("cannot read cpu.stat: %w", err)
+	}
+	ccs, err := parseCgroupCpuStat(string(data))
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse %s: %w", cgroupCpuStatPath, err)
+	}
+	return ccs, nil
+}
+
+func parseCgroupCpuStat(data string) (*cgroupCpuStat, error) {
+	var ccs cgroupCpuStat
 	lines := strings.Split(data, "\n")
 	for _, s := range lines {
 		field := strings.Fields(s)
 		if len(field) != 2 {
 			continue
 		}
+
 		fieldKey := field[0]
 		fieldValue := field[1]
-		value, err := strconv.ParseUint(fieldValue, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("cannot parse number from %q: %w", s, err)
-		}
-		// For cgroup v1, refer to https://docs.kernel.org/scheduler/sched-bwc.html#statistics
-		// For cgroup v2, refer to https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#cpu-interface-files
 		switch fieldKey {
 		case "throttled_usec":
 			// In cgroup v2, the field is in microseconds.
+			// See https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#cpu-interface-files
+			value, err := strconv.ParseUint(fieldValue, 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("cannot parse number from %q: %w", s, err)
+			}
 			v := float64(value) / 1e6
-			ctms.throttledSecs = &v
+			ccs.throttledSecs = &v
 		case "throttled_time":
 			// In cgroup v1, the field is in nanoseconds.
+			// See https://docs.kernel.org/scheduler/sched-bwc.html#statistics
+			value, err := strconv.ParseUint(fieldValue, 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("cannot parse number from %q: %w", s, err)
+			}
 			v := float64(value) / 1e9
-			ctms.throttledSecs = &v
+			ccs.throttledSecs = &v
 		}
 	}
-	return &ctms, nil
+	return &ccs, nil
 }
 
 func writeProcessCpuThrottleMetrics(w io.Writer) {
-	ctms, err := getCgroupCpuStats()
+	ccs, err := getCgroupCpuStats()
 	if err != nil {
 		log.Printf("ERROR: metrics: cannot determine cpu.stat: %s", err)
 		return
 	}
-	if ctms == nil {
+	if ccs == nil {
 		// cgroup or cpu controller is not enabled, so do not expose cpu throttle metrics.
 		return
 	}
-	if ctms.throttledSecs != nil {
-		WriteCounterFloat64(w, "process_cgroup_cpu_throttled_seconds_total", *ctms.throttledSecs)
+	if ccs.throttledSecs != nil {
+		WriteCounterFloat64(w, "process_cgroup_cpu_throttled_seconds_total", *ccs.throttledSecs)
 	}
 }
 
