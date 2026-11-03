@@ -163,7 +163,7 @@ func WritePrometheus(w io.Writer, exposeProcessMetrics bool) {
 //
 //   - process_pressure_cpu_stalled_seconds_total - the number of seconds all the processes in the current cgroup v2 were stalled
 //
-//   - process_cgroup_cpu_throttled_seconds_total - the number of seconds all the processes in the current cgroup throttled
+//   - process_cgroup_cpu_throttled_seconds_total - the number of seconds all the processes in the current cgroup were throttled
 //
 //   - process_pressure_io_waiting_seconds_total - the number of seconds processes in the current cgroup v2 were waiting for io to complete
 //
