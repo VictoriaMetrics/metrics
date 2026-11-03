@@ -518,7 +518,6 @@ func writeProcessCpuThrottleMetrics(w io.Writer) {
 		return
 	}
 	if ccs == nil {
-		// cgroup or cpu controller is not enabled, so do not expose cpu throttle metrics.
 		return
 	}
 	if ccs.throttledSecs != nil {
