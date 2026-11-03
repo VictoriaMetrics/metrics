@@ -121,45 +121,29 @@ func TestGetCgroupV1RelativePath(t *testing.T) {
 	f("", "0::/user.slice\n")
 }
 
-func TestParseCgroupCpuStat(t *testing.T) {
-	t.Run("cgroup-v2", func(t *testing.T) {
-		ctms, err := parseCgroupCpuStat("usage_usec 123\nuser_usec 45\nsystem_usec 67\nnr_periods 7\nnr_throttled 3\nthrottled_usec 1000000\n")
+func TestParseCgroupCPUStat(t *testing.T) {
+	f := func(data string, want uint64) {
+		t.Helper()
+		ccs, err := parseCgroupCPUStat(data)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if ctms.throttledSecs == nil {
-			t.Fatalf("unexpected nil throttledSecs")
+		if ccs.throttledNanosecs != want {
+			t.Fatalf("unexpected throttledNanosecs: %d, want: %d", ccs.throttledNanosecs, want)
 		}
-		if got, want := *ctms.throttledSecs, float64(1); got != want {
-			t.Fatalf("unexpected throttledSecs: %g, want: %g", got, want)
-		}
-	})
+	}
 
-	t.Run("cgroup-v1", func(t *testing.T) {
-		ctms, err := parseCgroupCpuStat("nr_periods 9\nnr_throttled 4\nthrottled_time 2000000000\n")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if ctms.throttledSecs == nil {
-			t.Fatalf("unexpected nil throttledSecs")
-		}
-		if got, want := *ctms.throttledSecs, float64(2); got != want {
-			t.Fatalf("unexpected throttledSecs: %g, want: %g", got, want)
-		}
-	})
+	// cgroup v2
+	f("usage_usec 123\nuser_usec 45\nsystem_usec 67\nnr_periods 7\nnr_throttled 3\nthrottled_usec 1000000\n", 1e9)
 
-	t.Run("without-throttling-field", func(t *testing.T) {
-		ctms, err := parseCgroupCpuStat("usage_usec 123\nuser_usec 45\nsystem_usec 67\n")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if ctms.throttledSecs != nil {
-			t.Fatalf("unexpected throttledSecs: %g", *ctms.throttledSecs)
-		}
-	})
+	// cgroup v1
+	f("nr_periods 9\nnr_throttled 4\nthrottled_time 2000000000\n", 2e9)
+
+	// without throttling field
+	f("usage_usec 123\nuser_usec 45\nsystem_usec 67\n", 0)
 
 	t.Run("bad-value", func(t *testing.T) {
-		_, err := parseCgroupCpuStat("throttled_usec nope\n")
+		_, err := parseCgroupCPUStat("throttled_usec nope\n")
 		if err == nil {
 			t.Fatal("expected error")
 		}

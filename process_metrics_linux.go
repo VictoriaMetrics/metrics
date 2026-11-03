@@ -9,7 +9,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -98,7 +97,7 @@ func writeProcessMetrics(w io.Writer) {
 	writeProcessMemMetrics(w)
 	writeIOMetrics(w)
 	writePSIMetrics(w)
-	writeProcessCpuThrottleMetrics(w)
+	writeProcessCPUThrottleMetrics(w)
 }
 
 var procSelfIOErrLogged uint32
@@ -405,13 +404,19 @@ func readPSITotals(cgroupPath, statsName string) (uint64, uint64, error) {
 	return some, full, nil
 }
 
-type cgroupCpuStat struct {
-	throttledSecs *float64
+type cgroupCPUStat struct {
+	throttledNanosecs uint64
 }
 
-var cgroupCpuStatPath string
-var cgroupCpuStatPathInit sync.Once
-var cgroupCpuStatErrLogged atomic.Bool
+var cgroupCPUStatPath string
+var cgroupCPUStatMetricsStart = func() *cgroupCPUStat {
+	initCgroupCpuStatPath()
+	cpuStat, err := getCgroupCPUStats()
+	if err != nil {
+		return nil
+	}
+	return cpuStat
+}()
 
 // initCgroupCpuStatPath picks cgroup v2 cpu.stat in unified mode only, and cgroup v1 otherwise.
 // In hybrid mode the cpu controller is bound to cgroup v1, so v2 cpu.stat lacks throttling fields.
@@ -439,16 +444,15 @@ func initCgroupCpuStatPath() {
 		p = getCgroupV1CpuControllerPath()
 	}
 	if p != "" {
-		cgroupCpuStatPath = p + "/cpu.stat"
+		cgroupCPUStatPath = p + "/cpu.stat"
 	}
 }
 
-func getCgroupCpuStats() (*cgroupCpuStat, error) {
-	cgroupCpuStatPathInit.Do(initCgroupCpuStatPath)
-	if cgroupCpuStatPath == "" {
+func getCgroupCPUStats() (*cgroupCPUStat, error) {
+	if cgroupCPUStatPath == "" {
 		return nil, nil
 	}
-	data, err := os.ReadFile(cgroupCpuStatPath)
+	data, err := os.ReadFile(cgroupCPUStatPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			// The cpu controller isn't enabled for the cgroup.
@@ -456,15 +460,15 @@ func getCgroupCpuStats() (*cgroupCpuStat, error) {
 		}
 		return nil, fmt.Errorf("cannot read cpu.stat: %w", err)
 	}
-	ccs, err := parseCgroupCpuStat(string(data))
+	ccs, err := parseCgroupCPUStat(string(data))
 	if err != nil {
-		return nil, fmt.Errorf("cannot parse %s: %w", cgroupCpuStatPath, err)
+		return nil, fmt.Errorf("cannot parse %s: %w", cgroupCPUStatPath, err)
 	}
 	return ccs, nil
 }
 
-func parseCgroupCpuStat(data string) (*cgroupCpuStat, error) {
-	var ccs cgroupCpuStat
+func parseCgroupCPUStat(data string) (*cgroupCPUStat, error) {
+	var ccs cgroupCPUStat
 	lines := strings.Split(data, "\n")
 	for _, s := range lines {
 		field := strings.Fields(s)
@@ -482,33 +486,29 @@ func parseCgroupCpuStat(data string) (*cgroupCpuStat, error) {
 		case "throttled_usec":
 			// In cgroup v2, the field is in microseconds.
 			// See https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#cpu-interface-files
-			v := float64(value) / 1e6
-			ccs.throttledSecs = &v
+			ccs.throttledNanosecs = value * 1000
 		case "throttled_time":
 			// In cgroup v1, the field is in nanoseconds.
 			// See https://docs.kernel.org/scheduler/sched-bwc.html#statistics
-			v := float64(value) / 1e9
-			ccs.throttledSecs = &v
+			ccs.throttledNanosecs = value
 		}
 	}
 	return &ccs, nil
 }
 
-func writeProcessCpuThrottleMetrics(w io.Writer) {
-	ccs, err := getCgroupCpuStats()
+func writeProcessCPUThrottleMetrics(w io.Writer) {
+	if cgroupCPUStatMetricsStart == nil {
+		return
+	}
+	ccs, err := getCgroupCPUStats()
 	if err != nil {
-		// Do not spam the logs with the same error on every scrape.
-		if cgroupCpuStatErrLogged.CompareAndSwap(false, true) {
-			log.Printf("ERROR: metrics: cannot determine cpu.stat, so process_cgroup_cpu_throttled_seconds_total won't be exposed until the error is fixed: %s", err)
-		}
+		log.Printf("ERROR: metrics: cannot determine cpu.stat: %s", err)
 		return
 	}
 	if ccs == nil {
 		return
 	}
-	if ccs.throttledSecs != nil {
-		WriteCounterFloat64(w, "process_cgroup_cpu_throttled_seconds_total", *ccs.throttledSecs)
-	}
+	WriteCounterFloat64(w, "process_cgroup_cpu_throttled_seconds_total", float64(ccs.throttledNanosecs-cgroupCPUStatMetricsStart.throttledNanosecs)/1e9)
 }
 
 func getCgroupV2Path() string {
