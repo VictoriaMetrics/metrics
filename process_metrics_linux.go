@@ -625,26 +625,19 @@ func getCgroupV2Mountpoint(mountinfoData string) string {
 	return ""
 }
 
-func getCgroupV1CpuControllerPathInternal(cgroupData, mountinfoData string) string {
-	rel := getCgroupV1RelativePath(cgroupData)
-	if rel == "" {
-		return ""
-	}
-	mountpoint := getCgroupV1CpuMountpoint(mountinfoData)
-	if mountpoint == "" {
-		mountpoint = "/sys/fs/cgroup/cpu"
-	}
-	cgroupPath := path.Join(mountpoint, rel)
-	return strings.TrimSuffix(cgroupPath, "/")
-}
-
 func getCgroupV1CpuControllerPath() string {
 	cgroupData, err := os.ReadFile("/proc/self/cgroup")
 	if err != nil {
 		return ""
 	}
-	mountinfoData, _ := readFileWithTimeout("/proc/self/mountinfo", time.Second)
-	return getCgroupV1CpuControllerPathInternal(string(cgroupData), mountinfoData)
+	rel := getCgroupV1RelativePath(string(cgroupData))
+	if rel == "" {
+		return ""
+	}
+	// systemd and runc symlink /sys/fs/cgroup/cpu to the mountpoint of the cpu controller.
+	// Also, VM lib/cgroup ignores mountpoint too:
+	// https://github.com/VictoriaMetrics/VictoriaMetrics/blob/bb84352804bc4ec0619706acd1de1cb832bfc769/lib/cgroup/cpu.go#L101
+	return strings.TrimSuffix(path.Join("/sys/fs/cgroup/cpu", rel), "/")
 }
 
 func getCgroupV1RelativePath(cgroupData string) string {
@@ -661,38 +654,6 @@ func getCgroupV1RelativePath(cgroupData string) string {
 		for _, ctrl := range controllers {
 			if strings.TrimSpace(ctrl) == "cpu" {
 				return strings.TrimSpace(parts[2])
-			}
-		}
-	}
-	return ""
-}
-
-func getCgroupV1CpuMountpoint(mountinfoData string) string {
-	for _, line := range strings.Split(mountinfoData, "\n") {
-		if !strings.Contains(line, "cgroup") {
-			continue
-		}
-
-		// mountinfo lines have the form:
-		//   32 30 0:28 / /sys/fs/cgroup/cpu,cpuacct rw,nosuid,nodev,noexec,relatime - cgroup cgroup rw,cpu,cpuacct
-		// The optional fields preceding the filesystem type are terminated by " - ".
-		// See https://man7.org/linux/man-pages/man5/proc_pid_mountinfo.5.html
-		tmp := strings.SplitN(line, " - ", 2)
-		if len(tmp) != 2 {
-			continue
-		}
-		after := strings.Fields(tmp[1])
-		if len(after) < 3 || after[0] != "cgroup" {
-			continue
-		}
-		controllers := strings.Split(after[2], ",")
-		for _, ctrl := range controllers {
-			if strings.TrimSpace(ctrl) == "cpu" {
-				before := strings.Fields(tmp[0])
-				if len(before) < 5 {
-					return ""
-				}
-				return before[4]
 			}
 		}
 	}

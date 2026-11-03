@@ -96,34 +96,29 @@ func TestGetCgroupV2PathInternal(t *testing.T) {
 		"30 23 0:26 / /sys/fs/cgroup rw - cgroup cgroup rw,cpu\n")
 }
 
-func TestGetCgroupV1CpuControllerPathInternal(t *testing.T) {
-	f := func(want, cgroupData, mountinfoData string) {
+func TestGetCgroupV1RelativePath(t *testing.T) {
+	f := func(want, cgroupData string) {
 		t.Helper()
-		got := getCgroupV1CpuControllerPathInternal(cgroupData, mountinfoData)
+		got := getCgroupV1RelativePath(cgroupData)
 		if got != want {
 			t.Fatalf("unexpected result: %q, want: %q", got, want)
 		}
 	}
 
-	f("/sys/fs/cgroup/cpu/daemons",
-		"5:cpuacct,cpu,cpuset:/daemons\n",
-		"32 30 0:28 / /sys/fs/cgroup/cpu rw,nosuid,nodev,noexec,relatime - cgroup cgroup rw,cpu\n")
+	// cgroup v1 cpu controller.
+	f("/daemons", "5:cpuacct,cpu,cpuset:/daemons\n")
+	f("/", "5:cpuacct,cpu,cpuset:/\n")
 
-	f("/sys/fs/cgroup/cpu,cpuacct/daemons",
-		"5:cpuacct,cpu,cpuset:/daemons\n",
-		"32 30 0:28 / /sys/fs/cgroup/cpu,cpuacct rw,nosuid,nodev,noexec,relatime - cgroup cgroup rw,cpu,cpuacct\n")
+	// Hybrid mode: both cgroup v1 cpu controller and cgroup v2 entries.
+	f("/system.slice/app.service",
+		"4:cpu,cpuacct:/system.slice/app.service\n"+
+			"0::/system.slice/app.service\n")
 
-	f("/sys/fs/cgroup/cpu",
-		"5:cpuacct,cpu,cpuset:/\n",
-		"32 30 0:28 / /sys/fs/cgroup/cpu rw,nosuid,nodev,noexec,relatime - cgroup cgroup rw,cpu\n")
+	// No cpu controller in cgroup v1.
+	f("", "5:memory:/daemons\n")
 
-	f("",
-		"5:memory:/daemons\n",
-		"32 30 0:28 / /sys/fs/cgroup/cpu rw,nosuid,nodev,noexec,relatime - cgroup cgroup rw,cpu\n")
-
-	f("/sys/fs/cgroup/cpu/daemons",
-		"5:cpuacct,cpu,cpuset:/daemons\n",
-		"")
+	// Pure cgroup v2.
+	f("", "0::/user.slice\n")
 }
 
 func TestParseCgroupCpuStat(t *testing.T) {
