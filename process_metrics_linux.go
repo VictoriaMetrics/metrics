@@ -10,7 +10,9 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 )
 
@@ -97,6 +99,7 @@ func writeProcessMetrics(w io.Writer) {
 	writeProcessMemMetrics(w)
 	writeIOMetrics(w)
 	writePSIMetrics(w)
+	writeProcessCpuThrottleMetrics(w)
 }
 
 var procSelfIOErrLogged uint32
@@ -404,6 +407,112 @@ func readPSITotals(cgroupPath, statsName string) (uint64, uint64, error) {
 	return some, full, nil
 }
 
+type cgroupCpuStat struct {
+	throttledSecs *float64
+}
+
+var cgroupCpuStatPath string
+var cgroupCpuStatPathInit sync.Once
+var cgroupCpuStatErrLogged atomic.Bool
+
+// initCgroupCpuStatPath picks cgroup v2 cpu.stat in unified mode only, and cgroup v1 otherwise.
+// In hybrid mode the cpu controller is bound to cgroup v1, so v2 cpu.stat lacks throttling fields.
+// See "Hierarchy and Controller Support" at https://systemd.io/CGROUP_DELEGATION/
+// and https://github.com/opencontainers/cgroups/blob/v0.0.6/manager/new.go#L37-L54
+func initCgroupCpuStatPath() {
+	isCgroup2Mount := func(mountpoint string) bool {
+		var st syscall.Statfs_t
+		if err := syscall.Statfs(mountpoint, &st); err != nil {
+			return false
+		}
+
+		// cgroup2SuperMagic is the cgroup v2 filesystem type returned by statfs.
+		// See CGROUP2_SUPER_MAGIC in https://man7.org/linux/man-pages/man2/statfs.2.html
+		const cgroup2SuperMagic = 0x63677270
+		return st.Type == cgroup2SuperMagic
+	}
+
+	var p string
+	if isCgroup2Mount("/sys/fs/cgroup") {
+		// unified
+		p = getCgroupV2Path()
+	} else {
+		// legacy or hybrid.
+		p = getCgroupV1CpuControllerPath()
+	}
+	if p != "" {
+		cgroupCpuStatPath = p + "/cpu.stat"
+	}
+}
+
+func getCgroupCpuStats() (*cgroupCpuStat, error) {
+	cgroupCpuStatPathInit.Do(initCgroupCpuStatPath)
+	if cgroupCpuStatPath == "" {
+		return nil, nil
+	}
+	data, err := os.ReadFile(cgroupCpuStatPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// The cpu controller isn't enabled for the cgroup.
+			return nil, nil
+		}
+		return nil, fmt.Errorf("cannot read cpu.stat: %w", err)
+	}
+	ccs, err := parseCgroupCpuStat(string(data))
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse %s: %w", cgroupCpuStatPath, err)
+	}
+	return ccs, nil
+}
+
+func parseCgroupCpuStat(data string) (*cgroupCpuStat, error) {
+	var ccs cgroupCpuStat
+	lines := strings.Split(data, "\n")
+	for _, s := range lines {
+		field := strings.Fields(s)
+		if len(field) != 2 {
+			continue
+		}
+
+		fieldKey := field[0]
+		fieldValue := field[1]
+		value, err := strconv.ParseUint(fieldValue, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse number from %s: %q: %w", fieldKey, s, err)
+		}
+		switch fieldKey {
+		case "throttled_usec":
+			// In cgroup v2, the field is in microseconds.
+			// See https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#cpu-interface-files
+			v := float64(value) / 1e6
+			ccs.throttledSecs = &v
+		case "throttled_time":
+			// In cgroup v1, the field is in nanoseconds.
+			// See https://docs.kernel.org/scheduler/sched-bwc.html#statistics
+			v := float64(value) / 1e9
+			ccs.throttledSecs = &v
+		}
+	}
+	return &ccs, nil
+}
+
+func writeProcessCpuThrottleMetrics(w io.Writer) {
+	ccs, err := getCgroupCpuStats()
+	if err != nil {
+		// Do not spam the logs with the same error on every scrape.
+		if cgroupCpuStatErrLogged.CompareAndSwap(false, true) {
+			log.Printf("ERROR: metrics: cannot determine cpu.stat, so process_cgroup_cpu_throttled_seconds_total won't be exposed until the error is fixed: %s", err)
+		}
+		return
+	}
+	if ccs == nil {
+		return
+	}
+	if ccs.throttledSecs != nil {
+		WriteCounterFloat64(w, "process_cgroup_cpu_throttled_seconds_total", *ccs.throttledSecs)
+	}
+}
+
 func getCgroupV2Path() string {
 	cgroupData, err := os.ReadFile("/proc/self/cgroup")
 	if err != nil {
@@ -512,6 +621,41 @@ func getCgroupV2Mountpoint(mountinfoData string) string {
 		}
 		// before[4] is the mount point.
 		return before[4]
+	}
+	return ""
+}
+
+func getCgroupV1CpuControllerPath() string {
+	cgroupData, err := os.ReadFile("/proc/self/cgroup")
+	if err != nil {
+		return ""
+	}
+	rel := getCgroupV1RelativePath(string(cgroupData))
+	if rel == "" {
+		return ""
+	}
+	// systemd and runc symlink /sys/fs/cgroup/cpu to the mountpoint of the cpu controller.
+	// Also, VM lib/cgroup ignores mountpoint too:
+	// https://github.com/VictoriaMetrics/VictoriaMetrics/blob/bb84352804bc4ec0619706acd1de1cb832bfc769/lib/cgroup/cpu.go#L101
+	return strings.TrimSuffix(path.Join("/sys/fs/cgroup/cpu", rel), "/")
+}
+
+func getCgroupV1RelativePath(cgroupData string) string {
+	lines := strings.Split(cgroupData, "\n")
+	// each line will be in the format of "hierarchy-ID:controller-list:cgroup-path"
+	// e.g. 5:cpuacct,cpu,cpuset:/daemons
+	// https://man7.org/linux/man-pages/man7/cgroups.7.html
+	for _, line := range lines {
+		parts := strings.SplitN(line, ":", 3)
+		if len(parts) != 3 {
+			continue
+		}
+		controllers := strings.Split(parts[1], ",")
+		for _, ctrl := range controllers {
+			if strings.TrimSpace(ctrl) == "cpu" {
+				return strings.TrimSpace(parts[2])
+			}
+		}
 	}
 	return ""
 }

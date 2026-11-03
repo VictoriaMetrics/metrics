@@ -1,6 +1,8 @@
 package metrics
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestGetMaxFilesLimit(t *testing.T) {
 	f := func(want uint64, path string, wantErr bool) {
@@ -92,4 +94,74 @@ func TestGetCgroupV2PathInternal(t *testing.T) {
 	f("/sys/fs/cgroup/user.slice",
 		"0::/user.slice\n",
 		"30 23 0:26 / /sys/fs/cgroup rw - cgroup cgroup rw,cpu\n")
+}
+
+func TestGetCgroupV1RelativePath(t *testing.T) {
+	f := func(want, cgroupData string) {
+		t.Helper()
+		got := getCgroupV1RelativePath(cgroupData)
+		if got != want {
+			t.Fatalf("unexpected result: %q, want: %q", got, want)
+		}
+	}
+
+	// cgroup v1 cpu controller.
+	f("/daemons", "5:cpuacct,cpu,cpuset:/daemons\n")
+	f("/", "5:cpuacct,cpu,cpuset:/\n")
+
+	// Hybrid mode: both cgroup v1 cpu controller and cgroup v2 entries.
+	f("/system.slice/app.service",
+		"4:cpu,cpuacct:/system.slice/app.service\n"+
+			"0::/system.slice/app.service\n")
+
+	// No cpu controller in cgroup v1.
+	f("", "5:memory:/daemons\n")
+
+	// Pure cgroup v2.
+	f("", "0::/user.slice\n")
+}
+
+func TestParseCgroupCpuStat(t *testing.T) {
+	t.Run("cgroup-v2", func(t *testing.T) {
+		ctms, err := parseCgroupCpuStat("usage_usec 123\nuser_usec 45\nsystem_usec 67\nnr_periods 7\nnr_throttled 3\nthrottled_usec 1000000\n")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if ctms.throttledSecs == nil {
+			t.Fatalf("unexpected nil throttledSecs")
+		}
+		if got, want := *ctms.throttledSecs, float64(1); got != want {
+			t.Fatalf("unexpected throttledSecs: %g, want: %g", got, want)
+		}
+	})
+
+	t.Run("cgroup-v1", func(t *testing.T) {
+		ctms, err := parseCgroupCpuStat("nr_periods 9\nnr_throttled 4\nthrottled_time 2000000000\n")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if ctms.throttledSecs == nil {
+			t.Fatalf("unexpected nil throttledSecs")
+		}
+		if got, want := *ctms.throttledSecs, float64(2); got != want {
+			t.Fatalf("unexpected throttledSecs: %g, want: %g", got, want)
+		}
+	})
+
+	t.Run("without-throttling-field", func(t *testing.T) {
+		ctms, err := parseCgroupCpuStat("usage_usec 123\nuser_usec 45\nsystem_usec 67\n")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if ctms.throttledSecs != nil {
+			t.Fatalf("unexpected throttledSecs: %g", *ctms.throttledSecs)
+		}
+	})
+
+	t.Run("bad-value", func(t *testing.T) {
+		_, err := parseCgroupCpuStat("throttled_usec nope\n")
+		if err == nil {
+			t.Fatal("expected error")
+		}
+	})
 }
