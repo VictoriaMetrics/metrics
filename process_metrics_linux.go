@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -52,7 +51,7 @@ type procStat struct {
 
 func writeProcessMetrics(w io.Writer) {
 	statFilepath := "/proc/self/stat"
-	data, err := ioutil.ReadFile(statFilepath)
+	data, err := os.ReadFile(statFilepath)
 	if err != nil {
 		log.Printf("ERROR: metrics: cannot open %s: %s", statFilepath, err)
 		return
@@ -106,7 +105,7 @@ var procSelfIOErrLogged uint32
 
 func writeIOMetrics(w io.Writer) {
 	ioFilepath := "/proc/self/io"
-	data, err := ioutil.ReadFile(ioFilepath)
+	data, err := os.ReadFile(ioFilepath)
 	if err != nil {
 		// Do not spam the logs with errors - this error cannot be fixed without process restart.
 		// See https://github.com/VictoriaMetrics/metrics/issues/42
@@ -195,7 +194,7 @@ func getOpenFDsCount(path string) (uint64, error) {
 }
 
 func getMaxFilesLimit(path string) (uint64, error) {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return 0, err
 	}
@@ -247,7 +246,7 @@ func writeProcessMemMetrics(w io.Writer) {
 }
 
 func getMemStats(path string) (*memStats, error) {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -373,7 +372,7 @@ func getPSIMetrics() (*psiMetrics, error) {
 
 func readPSITotals(cgroupPath, statsName string) (uint64, uint64, error) {
 	filePath := cgroupPath + "/" + statsName
-	data, err := ioutil.ReadFile(filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return 0, 0, err
 	}
