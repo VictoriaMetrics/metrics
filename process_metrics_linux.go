@@ -484,23 +484,19 @@ func parseCgroupCpuStat(data string) (*cgroupCpuStat, error) {
 
 		fieldKey := field[0]
 		fieldValue := field[1]
+		value, err := strconv.ParseUint(fieldValue, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse number from %s: %q: %w", fieldKey, s, err)
+		}
 		switch fieldKey {
 		case "throttled_usec":
 			// In cgroup v2, the field is in microseconds.
 			// See https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#cpu-interface-files
-			value, err := strconv.ParseUint(fieldValue, 10, 64)
-			if err != nil {
-				return nil, fmt.Errorf("cannot parse number from %q: %w", s, err)
-			}
 			v := float64(value) / 1e6
 			ccs.throttledSecs = &v
 		case "throttled_time":
 			// In cgroup v1, the field is in nanoseconds.
 			// See https://docs.kernel.org/scheduler/sched-bwc.html#statistics
-			value, err := strconv.ParseUint(fieldValue, 10, 64)
-			if err != nil {
-				return nil, fmt.Errorf("cannot parse number from %q: %w", s, err)
-			}
 			v := float64(value) / 1e9
 			ccs.throttledSecs = &v
 		}
