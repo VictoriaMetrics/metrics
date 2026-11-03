@@ -324,7 +324,6 @@ func psiTotalSecs(microsecs uint64) float64 {
 var psiMetricsStart = func() *psiMetrics {
 	m, err := getPSIMetrics()
 	if err != nil {
-		log.Printf("INFO: metrics: disable exposing PSI metrics because of failed init: %s", err)
 		return nil
 	}
 	return m
