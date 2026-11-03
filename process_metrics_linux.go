@@ -420,8 +420,6 @@ var cgroupCpuStatErrLogged atomic.Bool
 // See "Hierarchy and Controller Support" at https://systemd.io/CGROUP_DELEGATION/
 // and https://github.com/opencontainers/cgroups/blob/v0.0.6/manager/new.go#L37-L54
 func initCgroupCpuStatPath() {
-
-	// isCgroup2Mount returns true if a cgroup v2 filesystem is mounted at the given mountpoint.
 	isCgroup2Mount := func(mountpoint string) bool {
 		var st syscall.Statfs_t
 		if err := syscall.Statfs(mountpoint, &st); err != nil {
@@ -431,21 +429,15 @@ func initCgroupCpuStatPath() {
 		// cgroup2SuperMagic is the cgroup v2 filesystem type returned by statfs.
 		// See CGROUP2_SUPER_MAGIC in https://man7.org/linux/man-pages/man2/statfs.2.html
 		const cgroup2SuperMagic = 0x63677270
-
-		// The type of st.Type differs between architectures, so convert it to int64.
-		return int64(st.Type) == cgroup2SuperMagic
+		return st.Type == cgroup2SuperMagic
 	}
 
 	var p string
-	switch {
-	case isCgroup2Mount("/sys/fs/cgroup/unified"):
-		// hybrid
-		p = getCgroupV1CpuControllerPath()
-	case isCgroup2Mount("/sys/fs/cgroup"):
+	if isCgroup2Mount("/sys/fs/cgroup") {
 		// unified
 		p = getCgroupV2Path()
-	default:
-		// legacy
+	} else {
+		// legacy or hybrid.
 		p = getCgroupV1CpuControllerPath()
 	}
 	if p != "" {
