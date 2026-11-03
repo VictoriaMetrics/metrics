@@ -413,6 +413,7 @@ type cgroupCpuStat struct {
 
 var cgroupCpuStatPath string
 var cgroupCpuStatPathInit sync.Once
+var cgroupCpuStatErrLogged atomic.Bool
 
 // initCgroupCpuStatPath picks cgroup v2 cpu.stat in unified mode only, and cgroup v1 otherwise.
 // In hybrid mode the cpu controller is bound to cgroup v1, so v2 cpu.stat lacks throttling fields.
@@ -510,7 +511,10 @@ func parseCgroupCpuStat(data string) (*cgroupCpuStat, error) {
 func writeProcessCpuThrottleMetrics(w io.Writer) {
 	ccs, err := getCgroupCpuStats()
 	if err != nil {
-		log.Printf("ERROR: metrics: cannot determine cpu.stat: %s", err)
+		// Do not spam the logs with the same error on every scrape.
+		if cgroupCpuStatErrLogged.CompareAndSwap(false, true) {
+			log.Printf("ERROR: metrics: cannot determine cpu.stat, so process_cgroup_cpu_throttled_seconds_total won't be exposed until the error is fixed: %s", err)
+		}
 		return
 	}
 	if ccs == nil {
