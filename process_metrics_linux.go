@@ -570,9 +570,9 @@ func getCgroupV2PathInternal(cgroupData, mountinfoData string) string {
 	// See https://github.com/VictoriaMetrics/metrics/issues/127
 	mountpoint := getCgroupV2Mountpoint(mountinfoData)
 	if mountpoint == "" {
+		// fallback to assumed path
 		mountpoint = "/sys/fs/cgroup"
 	}
-
 	cgroupPath := path.Join(mountpoint, rel)
 	// Drop trailing slash if it exists. This prevents from '//' in the constructed paths by the caller.
 	return strings.TrimSuffix(cgroupPath, "/")
