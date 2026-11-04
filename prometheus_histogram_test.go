@@ -94,6 +94,8 @@ func TestPrometheusHistogramLinearBuckets(t *testing.T) {
 	// make sure we panic for bad input
 	fRecover(0.5, 1.0, 0)
 	fRecover(0.5, -1, 2)
+	fRecover(math.NaN(), 1, 1)
+	fRecover(1, math.NaN(), 2)
 }
 
 func TestPrometheusHistogramExponentialBuckets(t *testing.T) {
@@ -120,6 +122,60 @@ func TestPrometheusHistogramExponentialBuckets(t *testing.T) {
 	fRecover(1, 2, 0)
 	fRecover(1, 1, 1)
 	fRecover(0, 2, 1)
+	fRecover(math.NaN(), 2, 1)
+	fRecover(1, math.NaN(), 2)
+}
+
+func TestValidateBucketsSuccess(t *testing.T) {
+	f := func(upperBounds []float64) {
+		t.Helper()
+		if err := ValidateBuckets(upperBounds); err != nil {
+			t.Fatalf("cannot validate buckets %v: %s", upperBounds, err)
+		}
+	}
+	f([]float64{0})
+	f([]float64{1})
+	f([]float64{-5, 0, 5})
+	f(PrometheusHistogramDefaultBuckets)
+	f([]float64{math.Inf(+1)})
+	f([]float64{math.Inf(-1), 0, math.Inf(+1)})
+}
+
+func TestValidateBucketsError(t *testing.T) {
+	f := func(upperBounds []float64) {
+		t.Helper()
+		if err := ValidateBuckets(upperBounds); err == nil {
+			t.Errorf("expecting non-nil error when validating buckets %v", upperBounds)
+		}
+	}
+	f(nil)
+	f([]float64{})
+	f([]float64{1, 1})
+	f([]float64{2, 1})
+	f([]float64{1, math.Inf(+1), 2})
+	f([]float64{math.NaN()})
+	f([]float64{math.NaN(), 1, 2})
+	f([]float64{1, math.NaN(), 2})
+	f([]float64{1, 2, math.NaN()})
+	f([]float64{math.NaN(), math.NaN()})
+	f([]float64{1, math.NaN(), math.Inf(+1)})
+}
+
+func TestPrometheusHistogramNaNBuckets(t *testing.T) {
+	f := func(upperBounds []float64) {
+		t.Helper()
+		s := NewSet()
+		expectPanic(t, "NewPrometheusHistogramExt", func() {
+			s.NewPrometheusHistogramExt("new", upperBounds)
+		})
+		expectPanic(t, "GetOrCreatePrometheusHistogramExt", func() {
+			s.GetOrCreatePrometheusHistogramExt("get_or_create", upperBounds)
+		})
+	}
+	f([]float64{math.NaN()})
+	f([]float64{math.NaN(), 1, 2})
+	f([]float64{1, math.NaN(), 2})
+	f([]float64{1, 2, math.NaN()})
 }
 
 // inspired from https://github.com/prometheus/client_golang/blob/main/prometheus/histogram_test.go
